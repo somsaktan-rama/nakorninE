@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.04</title>
+    <title>ECOS Solar Dashboard 1.05</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -34,25 +34,29 @@
             กำลังแสดงข้อมูลตั้งแต่ <span id="startDateText" class="font-semibold text-gray-700"></span> ถึง <span id="endDateText" class="font-semibold text-gray-700"></span>
         </div>
 
-        <!-- กล่อง Scorecards สรุปยอดรวม -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
-                <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์เซลล์</span>
-                <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-purple-50 p-4 rounded-xl border border-purple-100 shadow-sm flex flex-col">
-                <span id="labelLoad" class="text-purple-600 text-sm font-semibold mb-1">⚡ ไฟบ้าน</span>
-                <span id="sumLoad" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm flex flex-col">
-                <span id="labelGrid" class="text-red-600 text-sm font-semibold mb-1">🏢 ไฟหลวง</span>
-                <span id="sumGrid" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col">
-                <span id="labelBattery" class="text-emerald-600 text-sm font-semibold mb-1">🔋 แบตเตอรี่</span>
-                <span id="sumBattery" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-        </div>
+        <!-- กล่อง Scorecards สรุปยอดรวม แยกกลางวัน/กลางคืน -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
+        <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์เซลล์</span>
+        <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col">
+        <span id="labelLoadDay" class="text-amber-700 text-sm font-semibold mb-1">☀️ ไฟบ้าน (กลางวัน 06-18 น.)</span>
+        <span id="sumLoadDay" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 shadow-sm flex flex-col">
+        <span id="labelLoadNight" class="text-indigo-600 text-sm font-semibold mb-1">🌙 ไฟบ้าน (กลางคืน 18-06 น.)</span>
+        <span id="sumLoadNight" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm flex flex-col">
+        <span id="labelGrid" class="text-red-600 text-sm font-semibold mb-1">🏢 ไฟหลวง</span>
+        <span id="sumGrid" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col">
+        <span id="labelBattery" class="text-emerald-600 text-sm font-semibold mb-1">🔋 แบตเตอรี่จ่าย</span>
+        <span id="sumBattery" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+</div>
 
         <!-- 💡 ส่วนที่แก้ไข: เพิ่มคอลัมน์แบตเตอรี่ในตารางรายวัน -->
         <div id="weeklyBreakdown" class="hidden mb-6 bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
@@ -61,15 +65,16 @@
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-white text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
-                            <th class="py-3 px-4 font-medium">วันที่</th>
-                            <th class="py-3 px-4 font-medium text-amber-600">🌞 โซลาร์เซลล์</th>
-                            <th class="py-3 px-4 font-medium text-purple-600">⚡ ไฟบ้าน</th>
-                            <th class="py-3 px-4 font-medium text-red-600">🏢 ไฟหลวง</th>
-                            <th class="py-3 px-4 font-medium text-emerald-600">🔋 แบตเตอรี่</th>
-                        </tr>
-                    </thead>
+                    <thead class="bg-gray-50 text-gray-600 text-xs uppercase font-semibold">
+            <tr>
+                <th class="py-3 px-4">วันที่</th>
+                <th class="py-3 px-4 text-amber-600">🌞 โซลาร์</th>
+                <th class="py-3 px-4 text-amber-700">☀️ โหลดกลางวัน</th>
+                <th class="py-3 px-4 text-indigo-600">🌙 โหลดกลางคืน</th>
+                <th class="py-3 px-4 text-red-600">🏢 ไฟหลวง</th>
+                <th class="py-3 px-4 text-emerald-600">🔋 แบตเตอรี่จ่าย</th>
+            </tr>
+            </thead>
                     <tbody id="weeklyTableBody" class="divide-y divide-gray-100">
                         <!-- ข้อมูลจะถูกแทรกที่นี่ด้วย JS -->
                     </tbody>
@@ -177,61 +182,82 @@
                 });
             }
 
-            // 💡 ส่วนที่แก้ไข: เพิ่มตัวแปรคำนวณแบตเตอรี่
-            let totalPvW = 0, totalLoadW = 0, totalGridW = 0, totalBatteryW = 0;
-            const dailySummaries = {}; 
+            // ตัวแปรรวมค่าพลังงาน (W)
+let totalPvW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0;
+const dailySummaries = {}; 
 
-            filteredData.forEach(d => {
-                totalPvW += d.pv;
-                totalLoadW += d.load;
-                totalGridW += d.grid;
-                // คำนวณเฉพาะไฟที่ปล่อยออกจากแบตฯ (ค่าบวก) 
-                // ถ้าอยากดูทั้งชาร์จเข้า/ปล่อยออก ให้ลบ Math.abs() ออกครับ
-                totalBatteryW += Math.abs(d.battery); 
+filteredData.forEach(d => {
+    const dDate = new Date(d.time);
+    const hour = dDate.getHours();
+    const isDaytime = (hour >= 6 && hour < 18); // 06:00 - 17:59 น.
 
-                if (viewMode === 'weekly') {
-                    const dDate = new Date(d.time);
-                    const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
-                    
-                    if (!dailySummaries[dateStr]) {
-                        dailySummaries[dateStr] = { pv: 0, load: 0, grid: 0, battery: 0 };
-                    }
-                    dailySummaries[dateStr].pv += d.pv;
-                    dailySummaries[dateStr].load += d.load;
-                    dailySummaries[dateStr].grid += d.grid;
-                    dailySummaries[dateStr].battery += Math.abs(d.battery);
-                }
-            });
+    totalPvW += d.pv;
+    totalGridW += d.grid;
+    
+    // คัดเฉพาะกระแสที่แบตเตอรี่คายประจุช่วยบ้าน (ติดลบ)
+    if (d.battery < 0) {
+        totalBatteryW += Math.abs(d.battery);
+    }
 
-            // อัปเดต Scorecards
-            document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumLoad').innerHTML  = (totalLoadW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumGrid').innerHTML  = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumBattery').innerHTML = (totalBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+    // แยกโหลดบ้านกลางวัน / กลางคืน
+    if (isDaytime) {
+        totalLoadDayW += d.load;
+    } else {
+        totalLoadNightW += d.load;
+    }
 
-            const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
-            document.getElementById('labelSolar').innerText = '🌞 โซลาร์เซลล์ ' + labelSuffix;
-            document.getElementById('labelLoad').innerText  = '⚡ ไฟบ้าน ' + labelSuffix;
-            document.getElementById('labelGrid').innerText  = '🏢 ไฟหลวง ' + labelSuffix;
-            document.getElementById('labelBattery').innerText = '🔋 แบตเตอรี่ ' + labelSuffix;
+    // จัดกลุ่มสำหรับตารางรายสัปดาห์
+    if (viewMode === 'weekly') {
+        const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
+        
+        if (!dailySummaries[dateStr]) {
+            dailySummaries[dateStr] = { pv: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0 };
+        }
+        dailySummaries[dateStr].pv += d.pv;
+        dailySummaries[dateStr].grid += d.grid;
+        if (d.battery < 0) {
+            dailySummaries[dateStr].battery += Math.abs(d.battery);
+        }
+        if (isDaytime) {
+            dailySummaries[dateStr].loadDay += d.load;
+        } else {
+            dailySummaries[dateStr].loadNight += d.load;
+        }
+    }
+});
 
-            // 💡 วาดตารางรายวันพร้อมคอลัมน์แบตเตอรี่
-            if (viewMode === 'weekly') {
-                document.getElementById('weeklyBreakdown').classList.remove('hidden');
-                let tableHTML = '';
-                for (const [date, sums] of Object.entries(dailySummaries)) {
-                    tableHTML += `
-                        <tr class="text-sm text-gray-700 hover:bg-gray-50 transition">
-                            <td class="py-3 px-4">${date}</td>
-                            <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-purple-600 font-semibold">${(sums.load / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
-                        </tr>
-                    `;
-                }
-                document.getElementById('weeklyTableBody').innerHTML = tableHTML;
-            }
+// อัปเดต Scorecards (หาร 4000: แปลง W ทุก 15 นาทีเป็น kWh)
+document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+document.getElementById('sumLoadDay').innerHTML = (totalLoadDayW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+document.getElementById('sumLoadNight').innerHTML = (totalLoadNightW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+document.getElementById('sumGrid').innerHTML = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+document.getElementById('sumBattery').innerHTML = (totalBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+
+const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
+document.getElementById('labelSolar').innerText = '🌞 โซลาร์เซลล์ ' + labelSuffix;
+document.getElementById('labelLoadDay').innerText = '☀️ ไฟบ้านกลางวัน ' + labelSuffix;
+document.getElementById('labelLoadNight').innerText = '🌙 ไฟบ้านกลางคืน ' + labelSuffix;
+document.getElementById('labelGrid').innerText = '🏢 ไฟหลวง ' + labelSuffix;
+document.getElementById('labelBattery').innerText = '🔋 แบตเตอรี่จ่าย ' + labelSuffix;
+
+// เรนเดอร์ตารางสรุปรายวัน
+if (viewMode === 'weekly') {
+    document.getElementById('weeklyBreakdown').classList.remove('hidden');
+    let tableHTML = '';
+    for (const [date, sums] of Object.entries(dailySummaries)) {
+        tableHTML += `
+            <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
+                <td class="py-3 px-4">${date}</td>
+                <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
+                <td class="py-3 px-4 text-amber-700 font-semibold">${(sums.loadDay / 4000).toFixed(2)}</td>
+                <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
+                <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
+                <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
+            </tr>
+        `;
+    }
+    document.getElementById('weeklyTableBody').innerHTML = tableHTML;
+}
 
             const labels = filteredData.map(d => d.time);
             const pvData = filteredData.map(d => d.pv);
