@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.01</title>
+    <title>ECOS Solar Dashboard 1.02</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
 </head>
-<body class="bg-gray-50 p-4 md:p-8">
+<body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
             <h1 class="text-2xl font-bold text-gray-800">พฤติกรรมการใช้ไฟฟ้ารายวัน/สัปดาห์ (ECOS)</h1>
@@ -33,6 +33,22 @@
             กำลังแสดงข้อมูลตั้งแต่ <span id="startDateText" class="font-semibold text-gray-700"></span> ถึง <span id="endDateText" class="font-semibold text-gray-700"></span>
         </div>
 
+        <!-- 💡 ส่วนที่เพิ่มใหม่: กล่อง Scorecards สรุปยอด kWh -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
+                <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์เซลล์</span>
+                <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-xl border border-purple-100 shadow-sm flex flex-col">
+                <span id="labelLoad" class="text-purple-600 text-sm font-semibold mb-1">⚡ ไฟบ้าน</span>
+                <span id="sumLoad" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+            <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm flex flex-col">
+                <span id="labelGrid" class="text-red-600 text-sm font-semibold mb-1">🏢 ไฟหลวง</span>
+                <span id="sumGrid" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+        </div>
+
         <div class="relative h-[60vh] w-full">
             <canvas id="ecosChart"></canvas>
         </div>
@@ -46,7 +62,13 @@
         let allData = [];
         let viewMode = 'daily'; 
 
-        document.getElementById('datePicker').valueAsDate = new Date();
+        // 💡 ตั้งค่าให้ Default Date เป็น "เมื่อวาน" ทันทีที่เปิดหน้าเว็บ
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yyyy = yesterday.getFullYear();
+        const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+        const dd = String(yesterday.getDate()).padStart(2, '0');
+        document.getElementById('datePicker').value = `${yyyy}-${mm}-${dd}`;
 
         async function fetchGoogleSheetData() {
             document.getElementById('loading').classList.remove('hidden');
@@ -124,7 +146,26 @@
                 });
             }
 
-            // เพิ่ม socData เข้ามา
+            // 💡 ส่วนที่เพิ่มใหม่: คำนวณสรุปยอด kWh และแสดงใน Scorecards
+            let totalPvW = 0, totalLoadW = 0, totalGridW = 0;
+            filteredData.forEach(d => {
+                totalPvW += d.pv;
+                totalLoadW += d.load;
+                totalGridW += d.grid;
+            });
+
+            // หาร 4000 เพราะข้อมูลมาทุก 15 นาที (แปลง W เป็น kWh)
+            document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            document.getElementById('sumLoad').innerHTML  = (totalLoadW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            document.getElementById('sumGrid').innerHTML  = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+
+            // เปลี่ยนข้อความบนกล่องตามมุมมอง
+            const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
+            document.getElementById('labelSolar').innerText = '🌞 โซลาร์เซลล์ ' + labelSuffix;
+            document.getElementById('labelLoad').innerText  = '⚡ ไฟบ้าน ' + labelSuffix;
+            document.getElementById('labelGrid').innerText  = '🏢 ไฟหลวง ' + labelSuffix;
+
+            // วาดกราฟ
             const labels = filteredData.map(d => d.time);
             const pvData = filteredData.map(d => d.pv);
             const loadData = filteredData.map(d => d.load);
@@ -135,7 +176,6 @@
             renderChart(labels, pvData, loadData, gridData, batteryData, socData);
         }
 
-        // อัปเดตฟังก์ชัน renderChart เพื่อรับ SOC และเพิ่มแกน y1
         function renderChart(labels, pv, load, grid, battery, soc) {
             const ctx = document.getElementById('ecosChart').getContext('2d');
             
@@ -170,9 +210,8 @@
                             borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius 
                         },
                         { 
-                            // เพิ่ม Dataset ใหม่สำหรับ Battery SOC
                             label: 'Battery SOC (%)', data: soc, yAxisID: 'y1', 
-                            borderColor: '#3B82F6', borderDash: [5, 5], // สีฟ้าและเป็นเส้นประ
+                            borderColor: '#3B82F6', borderDash: [5, 5], 
                             borderWidth: 2, tension: lineTension, pointRadius: pRadius 
                         }
                     ]
@@ -188,23 +227,20 @@
                             time: { unit: xUnit, tooltipFormat: 'DD MMM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd DD MMM' } },
                             title: { display: false }
                         },
-                        // แกน Y ฝั่งซ้าย สำหรับพลังงาน (W)
                         y: { 
                             type: 'linear',
                             position: 'left',
                             title: { display: true, text: 'พลังงาน (Watt)' },
                             beginAtZero: true 
                         },
-                        // แกน Y ฝั่งขวา สำหรับ SOC (%)
                         y1: {
                             type: 'linear',
                             position: 'right',
                             title: { display: true, text: 'ความจุแบตเตอรี่ (%)', color: '#3B82F6' },
                             min: 0,
                             max: 100,
-                            // ปิดเส้น Grid ฝั่งขวา เพื่อไม่ให้ซ้อนทับกับฝั่งซ้ายจนดูรก
                             grid: { drawOnChartArea: false },
-                            ticks: { color: '#3B82F6' } // เปลี่ยนสีตัวเลขแกน Y ให้ตรงกับสีเส้น
+                            ticks: { color: '#3B82F6' } 
                         }
                     }
                 }
