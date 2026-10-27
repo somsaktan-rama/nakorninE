@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.06</title>
+    <title>ECOS Solar Dashboard 1.07</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.06</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.07</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -23,9 +23,11 @@
         <div class="flex flex-wrap gap-4 mb-6 items-end">
             <div>
                 <label id="dateLabel" class="block text-sm font-medium text-gray-600 mb-1">เลือกวันที่</label>
-                <input type="date" id="datePicker" class="border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <!-- 💡 แก้ไข: เพิ่ม onchange="updateChart()" เพื่อให้รีเฟรชกราฟทันทีที่เลือกวัน -->
+                <input type="date" id="datePicker" onchange="updateChart()" class="border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer">
             </div>
-            <button onclick="updateChart()" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition">ดึงข้อมูล</button>
+            <!-- ปุ่มดึงข้อมูลยังเก็บไว้เผื่อต้องการดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์แบบ manual -->
+            <button onclick="fetchGoogleSheetData()" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition">ดึงข้อมูลล่าสุด</button>
             <span id="loading" class="text-gray-500 hidden animate-pulse ml-2">กำลังโหลดข้อมูล...</span>
             <span id="lastUpdated" class="text-xs text-gray-400 ml-2"></span>
         </div>
@@ -35,34 +37,33 @@
         </div>
 
         <!-- กล่อง Scorecards สรุปยอดรวม แยกกลางวัน/กลางคืน -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-    <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
-        <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์เซลล์</span>
-        <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-    </div>
-    <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col">
-        <span id="labelLoadDay" class="text-amber-700 text-sm font-semibold mb-1">☀️ ไฟบ้าน (กลางวัน 06-18 น.)</span>
-        <span id="sumLoadDay" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-    </div>
-    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 shadow-sm flex flex-col">
-        <span id="labelLoadNight" class="text-indigo-600 text-sm font-semibold mb-1">🌙 ไฟบ้าน (กลางคืน 18-06 น.)</span>
-        <span id="sumLoadNight" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-    </div>
-    <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm flex flex-col">
-        <span id="labelGrid" class="text-red-600 text-sm font-semibold mb-1">🏢 ไฟหลวง</span>
-        <span id="sumGrid" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-    </div>
-    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col">
-        <span id="labelBattery" class="text-emerald-600 text-sm font-semibold mb-1">🔋 แบตเตอรี่จ่าย</span>
-        <span id="sumBattery" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-    </div>
-    <div class="bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm flex flex-col">
-        <span class="text-rose-600 text-sm font-semibold mb-1" title="ดึงไฟหลวงมาชาร์จแบตช่วง 06:00-18:00 น.">⚠️ กริดชาร์จแบต (กลางวัน)</span>
-        <span id="sumGridToBattery" class="text-2xl font-bold text-rose-600">0.00 <span class="text-base font-normal text-rose-400">kWh</span></span>
-    </div>
-</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
+                <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์เซลล์</span>
+                <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+            <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col">
+                <span id="labelLoadDay" class="text-amber-700 text-sm font-semibold mb-1">☀️ ไฟบ้าน (กลางวัน 06-18 น.)</span>
+                <span id="sumLoadDay" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+            <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 shadow-sm flex flex-col">
+                <span id="labelLoadNight" class="text-indigo-600 text-sm font-semibold mb-1">🌙 ไฟบ้าน (กลางคืน 18-06 น.)</span>
+                <span id="sumLoadNight" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+            <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm flex flex-col">
+                <span id="labelGrid" class="text-red-600 text-sm font-semibold mb-1">🏢 ไฟหลวง</span>
+                <span id="sumGrid" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+            <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col">
+                <span id="labelBattery" class="text-emerald-600 text-sm font-semibold mb-1">🔋 แบตเตอรี่จ่าย</span>
+                <span id="sumBattery" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+            </div>
+            <div class="bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm flex flex-col">
+                <span class="text-rose-600 text-sm font-semibold mb-1" title="ดึงไฟหลวงมาชาร์จแบตช่วง 06:00-18:00 น.">⚠️ กริดชาร์จแบต (กลางวัน)</span>
+                <span id="sumGridToBattery" class="text-2xl font-bold text-rose-600">0.00 <span class="text-base font-normal text-rose-400">kWh</span></span>
+            </div>
+        </div>
 
-        <!-- 💡 ส่วนที่แก้ไข: เพิ่มคอลัมน์แบตเตอรี่ในตารางรายวัน -->
         <div id="weeklyBreakdown" class="hidden mb-6 bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
             <div class="bg-gray-50 px-4 py-3 border-b border-gray-100 font-semibold text-gray-700">
                 📊 สรุปการใช้พลังงานแยกรายวัน (kWh)
@@ -70,16 +71,16 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-gray-50 text-gray-600 text-xs uppercase font-semibold">
-            <tr>
-                <th class="py-3 px-4">วันที่</th>
-                <th class="py-3 px-4 text-amber-600">🌞 โซลาร์</th>
-                <th class="py-3 px-4 text-amber-700">☀️ โหลดกลางวัน</th>
-                <th class="py-3 px-4 text-indigo-600">🌙 โหลดกลางคืน</th>
-                <th class="py-3 px-4 text-red-600">🏢 ไฟหลวง</th>
-                <th class="py-3 px-4 text-emerald-600">🔋 แบตเตอรี่จ่าย</th>
-                <th class="py-3 px-4 font-medium text-rose-600" title="ไฟหลวงที่รั่วไปชาร์จแบต">⚠️ กริดชาร์จแบต</th>
-            </tr>
-            </thead>
+                        <tr>
+                            <th class="py-3 px-4">วันที่</th>
+                            <th class="py-3 px-4 text-amber-600">🌞 โซลาร์</th>
+                            <th class="py-3 px-4 text-amber-700">☀️ โหลดกลางวัน</th>
+                            <th class="py-3 px-4 text-indigo-600">🌙 โหลดกลางคืน</th>
+                            <th class="py-3 px-4 text-red-600">🏢 ไฟหลวง</th>
+                            <th class="py-3 px-4 text-emerald-600">🔋 แบตเตอรี่จ่าย</th>
+                            <th class="py-3 px-4 font-medium text-rose-600" title="ไฟหลวงที่รั่วไปชาร์จแบต">⚠️ กริดชาร์จแบต</th>
+                        </tr>
+                    </thead>
                     <tbody id="weeklyTableBody" class="divide-y divide-gray-100">
                         <!-- ข้อมูลจะถูกแทรกที่นี่ด้วย JS -->
                     </tbody>
@@ -93,7 +94,6 @@
     </div>
 
     <script>
-        // 🛑 นำ Web App URL ที่ได้จาก Google Apps Script มาใส่ตรงนี้
         const API_URL = "https://script.google.com/macros/s/AKfycbwIFyVVb3zwo3cYjZ7d_xRvOJlY6KyK2tgREdeYNZOnCXiXINPFYRGscc8f7K6L1YY/exec"; 
         
         let ecosChart;
@@ -156,23 +156,30 @@
         function updateChart() {
             if (allData.length === 0) return;
 
-            const selectedDateStr = document.getElementById('datePicker').value; 
+            const selectedDateStr = document.getElementById('datePicker').value; // 'YYYY-MM-DD'
             if (!selectedDateStr) return;
             
-            const selectedDateObj = new Date(selectedDateStr);
-            selectedDateObj.setHours(0,0,0,0);
+            // 💡 แก้ไขบั๊ก Timezone: แยกวันที่ออกมาตรงๆ เพื่อสร้างวันที่โซนไทย
+            const dateParts = selectedDateStr.split('-');
+            // year, month (0-11), day
+            const selectedDateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]); 
+            
             let filteredData = [];
 
             if (viewMode === 'daily') {
                 filteredData = allData.filter(d => {
                     const dDate = new Date(d.time);
-                    dDate.setHours(0,0,0,0);
-                    return dDate.getTime() === selectedDateObj.getTime();
+                    // 💡 แก้ไขบั๊ก: เทียบเป็น String YYYY-MM-DD ป้องกันปัญหาเวลาเหลื่อม 7 ชั่วโมง
+                    const dStr = dDate.getFullYear() + '-' + 
+                                 String(dDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                 String(dDate.getDate()).padStart(2, '0');
+                    return dStr === selectedDateStr;
                 });
             } else if (viewMode === 'weekly') {
                 const dayOfWeek = selectedDateObj.getDay() || 7; 
                 const startOfWeek = new Date(selectedDateObj);
                 startOfWeek.setDate(selectedDateObj.getDate() - dayOfWeek + 1);
+                startOfWeek.setHours(0, 0, 0, 0);
                 
                 const endOfWeek = new Date(startOfWeek);
                 endOfWeek.setDate(startOfWeek.getDate() + 6);
@@ -182,86 +189,90 @@
                 document.getElementById('endDateText').innerText = endOfWeek.toLocaleDateString('th-TH');
 
                 filteredData = allData.filter(d => {
-                    const dataTime = d.time;
+                    const dataTime = new Date(d.time).getTime();
                     return dataTime >= startOfWeek.getTime() && dataTime <= endOfWeek.getTime();
                 });
             }
 
-// 1. เพิ่มตัวแปร totalGridToBatteryW
-let totalPvW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0, totalGridToBatteryW = 0;
-const dailySummaries = {}; 
+            let totalPvW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0, totalGridToBatteryW = 0;
+            const dailySummaries = {}; 
 
-filteredData.forEach(d => {
-    const dDate = new Date(d.time);
-    const hour = dDate.getHours();
-    const isDaytime = (hour >= 6 && hour < 18);
+            filteredData.forEach(d => {
+                const dDate = new Date(d.time);
+                const hour = dDate.getHours();
+                const isDaytime = (hour >= 6 && hour < 18);
 
-    totalPvW += d.pv;
-    totalGridW += d.grid;
-    
-    // คัดเฉพาะกระแสที่แบตเตอรี่คายประจุช่วยบ้าน (ติดลบ)
-    if (d.battery < 0) {
-        totalBatteryW += Math.abs(d.battery);
-    }
+                totalPvW += d.pv;
+                totalGridW += d.grid;
+                
+                if (d.battery < 0) {
+                    totalBatteryW += Math.abs(d.battery);
+                }
 
-    // 💡 ค้นหาไฟหลวงที่รั่วไปชาร์จแบตช่วงกลางวัน (แบตเตอรี่เป็นบวก = ชาร์จเข้า)
-    if (isDaytime && d.grid > 0 && d.battery > 0) {
-        // ปริมาณไฟหลวงที่เข้าแบต คือค่าที่น้อยกว่าระหว่าง grid กับ battery
-        const gridToBattery = Math.min(d.grid, d.battery);
-        totalGridToBatteryW += gridToBattery;
-    }
+                if (isDaytime && d.grid > 0 && d.battery > 0) {
+                    const gridToBattery = Math.min(d.grid, d.battery);
+                    totalGridToBatteryW += gridToBattery;
+                }
 
-    if (isDaytime) {
-        totalLoadDayW += d.load;
-    } else {
-        totalLoadNightW += d.load;
-    }
+                if (isDaytime) {
+                    totalLoadDayW += d.load;
+                } else {
+                    totalLoadNightW += d.load;
+                }
 
-    if (viewMode === 'weekly') {
-        const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
-        
-        if (!dailySummaries[dateStr]) {
-            dailySummaries[dateStr] = { pv: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBattery: 0 };
-        }
-        dailySummaries[dateStr].pv += d.pv;
-        dailySummaries[dateStr].grid += d.grid;
-        if (d.battery < 0) { dailySummaries[dateStr].battery += Math.abs(d.battery); }
-        if (isDaytime) { dailySummaries[dateStr].loadDay += d.load; } 
-        else { dailySummaries[dateStr].loadNight += d.load; }
-        
-        // 💡 เก็บยอดแยกรายวัน
-        if (isDaytime && d.grid > 0 && d.battery > 0) {
-            dailySummaries[dateStr].gridToBattery += Math.min(d.grid, d.battery);
-        }
-    }
-});
+                if (viewMode === 'weekly') {
+                    const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
+                    
+                    if (!dailySummaries[dateStr]) {
+                        dailySummaries[dateStr] = { pv: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBattery: 0 };
+                    }
+                    dailySummaries[dateStr].pv += d.pv;
+                    dailySummaries[dateStr].grid += d.grid;
+                    if (d.battery < 0) { dailySummaries[dateStr].battery += Math.abs(d.battery); }
+                    if (isDaytime) { dailySummaries[dateStr].loadDay += d.load; } 
+                    else { dailySummaries[dateStr].loadNight += d.load; }
+                    
+                    if (isDaytime && d.grid > 0 && d.battery > 0) {
+                        dailySummaries[dateStr].gridToBattery += Math.min(d.grid, d.battery);
+                    }
+                }
+            });
 
-// 2. แสดงผลตัวเลขลงกล่อง Scorecard (หาร 4000)
-document.getElementById('sumGridToBattery').innerHTML = (totalGridToBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-rose-400">kWh</span>';
+            document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            document.getElementById('sumLoadDay').innerHTML = (totalLoadDayW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            document.getElementById('sumLoadNight').innerHTML = (totalLoadNightW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            document.getElementById('sumGrid').innerHTML = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            document.getElementById('sumBattery').innerHTML = (totalBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            document.getElementById('sumGridToBattery').innerHTML = (totalGridToBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-rose-400">kWh</span>';
 
-// 3. แสดงผลลงในลูปตาราง HTML (เพิ่ม <td> ต่อท้าย)
-if (viewMode === 'weekly') {
-    document.getElementById('weeklyBreakdown').classList.remove('hidden');
-    let tableHTML = '';
-    for (const [date, sums] of Object.entries(dailySummaries)) {
-        // ไฮไลต์ให้เห็นชัดๆ ถ้าวันไหนมีไฟรั่วชาร์จแบตเกิน 0.1 kWh
-        const gridToBatKwh = (sums.gridToBattery / 4000).toFixed(2);
-        const warningClass = gridToBatKwh > 0.1 ? 'bg-rose-50 text-rose-600 font-bold' : 'text-gray-400';
+            const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
+            document.getElementById('labelSolar').innerText = '🌞 โซลาร์เซลล์ ' + labelSuffix;
+            document.getElementById('labelLoadDay').innerText = '☀️ ไฟบ้านกลางวัน ' + labelSuffix;
+            document.getElementById('labelLoadNight').innerText = '🌙 ไฟบ้านกลางคืน ' + labelSuffix;
+            document.getElementById('labelGrid').innerText = '🏢 ไฟหลวง ' + labelSuffix;
+            document.getElementById('labelBattery').innerText = '🔋 แบตเตอรี่จ่าย ' + labelSuffix;
 
-        tableHTML += `
-            <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
-                <td class="py-3 px-4">${date}</td>
-                <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
-                <td class="py-3 px-4 text-amber-700 font-semibold">${(sums.loadDay / 4000).toFixed(2)}</td>
-                <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
-                <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
-                <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
-                <td class="py-3 px-4 ${warningClass}">${gridToBatKwh}</td>
-            </tr>
-        `;
-    }
-    document.getElementById('weeklyTableBody').innerHTML = tableHTML;
-}
+            if (viewMode === 'weekly') {
+                document.getElementById('weeklyBreakdown').classList.remove('hidden');
+                let tableHTML = '';
+                for (const [date, sums] of Object.entries(dailySummaries)) {
+                    const gridToBatKwh = (sums.gridToBattery / 4000).toFixed(2);
+                    const warningClass = gridToBatKwh > 0.1 ? 'bg-rose-50 text-rose-600 font-bold' : 'text-gray-400';
+
+                    tableHTML += `
+                        <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
+                            <td class="py-3 px-4">${date}</td>
+                            <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
+                            <td class="py-3 px-4 text-amber-700 font-semibold">${(sums.loadDay / 4000).toFixed(2)}</td>
+                            <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
+                            <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
+                            <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
+                            <td class="py-3 px-4 ${warningClass}">${gridToBatKwh}</td>
+                        </tr>
+                    `;
+                }
+                document.getElementById('weeklyTableBody').innerHTML = tableHTML;
+            }
             
             const labels = filteredData.map(d => d.time);
             const pvData = filteredData.map(d => d.pv);
@@ -270,22 +281,18 @@ if (viewMode === 'weekly') {
             const batteryData = filteredData.map(d => d.battery);
             const socData = filteredData.map(d => d.soc);
 
-            // 💡 ส่วนที่เพิ่มใหม่: เตรียมข้อมูลพล็อตจุดแดงแจ้งเตือน (Red Dots)
             const gridToBatData = filteredData.map(d => {
                 const hour = new Date(d.time).getHours();
                 const isDaytime = (hour >= 6 && hour < 18);
-                // ถ้าเป็นกลางวัน + ดึงไฟหลวง + แบตเตอรี่ชาร์จเข้า
                 if (isDaytime && d.grid > 0 && d.battery > 0) {
-                    return Math.min(d.grid, d.battery); // พล็อตจุดตรงระดับพลังงาน (W) ที่ถูกชาร์จ
+                    return Math.min(d.grid, d.battery); 
                 }
-                return null; // เวลาอื่นส่งค่า null เพื่อไม่ให้วาดจุด
+                return null; 
             });
 
-            // 💡 อย่าลืมส่ง gridToBatData ต่อไปให้ renderChart ด้วย
             renderChart(labels, pvData, loadData, gridData, batteryData, socData, gridToBatData);
         }
 
-// 💡 แก้ไขบรรทัดนี้: เพิ่ม gridToBat เข้ามาในวงเล็บ
         function renderChart(labels, pv, load, grid, battery, soc, gridToBat) {
             const ctx = document.getElementById('ecosChart').getContext('2d');
             
@@ -296,7 +303,6 @@ if (viewMode === 'weekly') {
             const pRadius = viewMode === 'weekly' ? 0 : (labels.length < 50 ? 2 : 0);
             const lineTension = 0.4;
             const xUnit = viewMode === 'weekly' ? 'day' : 'hour';
-            const xFormat = viewMode === 'weekly' ? 'dd DD MMM' : 'HH:mm';
 
             ecosChart = new Chart(ctx, {
                 type: 'line',
@@ -308,8 +314,6 @@ if (viewMode === 'weekly') {
                         { label: 'Grid Power (W)', data: grid, yAxisID: 'y', borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
                         { label: 'Battery Power (W)', data: battery, yAxisID: 'y', borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
                         { label: 'Battery SOC (%)', data: soc, yAxisID: 'y1', borderColor: '#3B82F6', borderDash: [5, 5], borderWidth: 2, tension: lineTension, pointRadius: pRadius },
-                        
-                        // 💡 ส่วนที่เพิ่มใหม่: กราฟจุดแจ้งเตือน (Red Dots)
                         {
                             label: '⚠️ กริดชาร์จแบต (W)',
                             data: gridToBat,
@@ -317,15 +321,14 @@ if (viewMode === 'weekly') {
                             borderColor: '#DC2626',
                             backgroundColor: '#EF4444',
                             borderWidth: 2,
-                            pointRadius: 6,         // สั่งให้จุดใหญ่เป็นพิเศษ (ขนาด 6)
-                            pointHoverRadius: 8,    // ตอนเอาเมาส์ชี้ให้ขยายใหญ่ขึ้น
+                            pointRadius: 6,         
+                            pointHoverRadius: 8,    
                             pointStyle: 'circle',
-                            showLine: false         // 💡 สั่งไม่ให้วาดเส้นเชื่อม ให้โชว์แค่ "จุดลอยๆ"
+                            showLine: false         
                         }
                     ]
                 },
                 options: {
-                    // ... (ส่วน options คงเดิมทั้งหมด)
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
@@ -339,7 +342,9 @@ if (viewMode === 'weekly') {
             });
         }
 
+        // เริ่มโหลดข้อมูลทันทีที่เปิดหน้าเว็บ
         fetchGoogleSheetData();
+        // ตั้งเวลาดึงข้อมูลล่าสุดอัตโนมัติทุกๆ 15 นาที
         setInterval(fetchGoogleSheetData, 15 * 60 * 1000);
     </script>
 </body>
