@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.05</title>
+    <title>ECOS Solar Dashboard 1.06</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -56,6 +56,10 @@
         <span id="labelBattery" class="text-emerald-600 text-sm font-semibold mb-1">🔋 แบตเตอรี่จ่าย</span>
         <span id="sumBattery" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
     </div>
+    <div class="bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm flex flex-col">
+        <span class="text-rose-600 text-sm font-semibold mb-1" title="ดึงไฟหลวงมาชาร์จแบตช่วง 06:00-18:00 น.">⚠️ กริดชาร์จแบต (กลางวัน)</span>
+        <span id="sumGridToBattery" class="text-2xl font-bold text-rose-600">0.00 <span class="text-base font-normal text-rose-400">kWh</span></span>
+    </div>
 </div>
 
         <!-- 💡 ส่วนที่แก้ไข: เพิ่มคอลัมน์แบตเตอรี่ในตารางรายวัน -->
@@ -73,6 +77,7 @@
                 <th class="py-3 px-4 text-indigo-600">🌙 โหลดกลางคืน</th>
                 <th class="py-3 px-4 text-red-600">🏢 ไฟหลวง</th>
                 <th class="py-3 px-4 text-emerald-600">🔋 แบตเตอรี่จ่าย</th>
+                <th class="py-3 px-4 font-medium text-rose-600" title="ไฟหลวงที่รั่วไปชาร์จแบต">⚠️ กริดชาร์จแบต</th>
             </tr>
             </thead>
                     <tbody id="weeklyTableBody" class="divide-y divide-gray-100">
@@ -182,14 +187,14 @@
                 });
             }
 
-            // ตัวแปรรวมค่าพลังงาน (W)
-let totalPvW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0;
+// 1. เพิ่มตัวแปร totalGridToBatteryW
+let totalPvW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0, totalGridToBatteryW = 0;
 const dailySummaries = {}; 
 
 filteredData.forEach(d => {
     const dDate = new Date(d.time);
     const hour = dDate.getHours();
-    const isDaytime = (hour >= 6 && hour < 18); // 06:00 - 17:59 น.
+    const isDaytime = (hour >= 6 && hour < 18);
 
     totalPvW += d.pv;
     totalGridW += d.grid;
@@ -199,52 +204,50 @@ filteredData.forEach(d => {
         totalBatteryW += Math.abs(d.battery);
     }
 
-    // แยกโหลดบ้านกลางวัน / กลางคืน
+    // 💡 ค้นหาไฟหลวงที่รั่วไปชาร์จแบตช่วงกลางวัน (แบตเตอรี่เป็นบวก = ชาร์จเข้า)
+    if (isDaytime && d.grid > 0 && d.battery > 0) {
+        // ปริมาณไฟหลวงที่เข้าแบต คือค่าที่น้อยกว่าระหว่าง grid กับ battery
+        const gridToBattery = Math.min(d.grid, d.battery);
+        totalGridToBatteryW += gridToBattery;
+    }
+
     if (isDaytime) {
         totalLoadDayW += d.load;
     } else {
         totalLoadNightW += d.load;
     }
 
-    // จัดกลุ่มสำหรับตารางรายสัปดาห์
     if (viewMode === 'weekly') {
         const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
         
         if (!dailySummaries[dateStr]) {
-            dailySummaries[dateStr] = { pv: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0 };
+            dailySummaries[dateStr] = { pv: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBattery: 0 };
         }
         dailySummaries[dateStr].pv += d.pv;
         dailySummaries[dateStr].grid += d.grid;
-        if (d.battery < 0) {
-            dailySummaries[dateStr].battery += Math.abs(d.battery);
-        }
-        if (isDaytime) {
-            dailySummaries[dateStr].loadDay += d.load;
-        } else {
-            dailySummaries[dateStr].loadNight += d.load;
+        if (d.battery < 0) { dailySummaries[dateStr].battery += Math.abs(d.battery); }
+        if (isDaytime) { dailySummaries[dateStr].loadDay += d.load; } 
+        else { dailySummaries[dateStr].loadNight += d.load; }
+        
+        // 💡 เก็บยอดแยกรายวัน
+        if (isDaytime && d.grid > 0 && d.battery > 0) {
+            dailySummaries[dateStr].gridToBattery += Math.min(d.grid, d.battery);
         }
     }
 });
 
-// อัปเดต Scorecards (หาร 4000: แปลง W ทุก 15 นาทีเป็น kWh)
-document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-document.getElementById('sumLoadDay').innerHTML = (totalLoadDayW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-document.getElementById('sumLoadNight').innerHTML = (totalLoadNightW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-document.getElementById('sumGrid').innerHTML = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-document.getElementById('sumBattery').innerHTML = (totalBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+// 2. แสดงผลตัวเลขลงกล่อง Scorecard (หาร 4000)
+document.getElementById('sumGridToBattery').innerHTML = (totalGridToBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-rose-400">kWh</span>';
 
-const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
-document.getElementById('labelSolar').innerText = '🌞 โซลาร์เซลล์ ' + labelSuffix;
-document.getElementById('labelLoadDay').innerText = '☀️ ไฟบ้านกลางวัน ' + labelSuffix;
-document.getElementById('labelLoadNight').innerText = '🌙 ไฟบ้านกลางคืน ' + labelSuffix;
-document.getElementById('labelGrid').innerText = '🏢 ไฟหลวง ' + labelSuffix;
-document.getElementById('labelBattery').innerText = '🔋 แบตเตอรี่จ่าย ' + labelSuffix;
-
-// เรนเดอร์ตารางสรุปรายวัน
+// 3. แสดงผลลงในลูปตาราง HTML (เพิ่ม <td> ต่อท้าย)
 if (viewMode === 'weekly') {
     document.getElementById('weeklyBreakdown').classList.remove('hidden');
     let tableHTML = '';
     for (const [date, sums] of Object.entries(dailySummaries)) {
+        // ไฮไลต์ให้เห็นชัดๆ ถ้าวันไหนมีไฟรั่วชาร์จแบตเกิน 0.1 kWh
+        const gridToBatKwh = (sums.gridToBattery / 4000).toFixed(2);
+        const warningClass = gridToBatKwh > 0.1 ? 'bg-rose-50 text-rose-600 font-bold' : 'text-gray-400';
+
         tableHTML += `
             <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
                 <td class="py-3 px-4">${date}</td>
@@ -253,12 +256,13 @@ if (viewMode === 'weekly') {
                 <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
                 <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
                 <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
+                <td class="py-3 px-4 ${warningClass}">${gridToBatKwh}</td>
             </tr>
         `;
     }
     document.getElementById('weeklyTableBody').innerHTML = tableHTML;
 }
-
+            
             const labels = filteredData.map(d => d.time);
             const pvData = filteredData.map(d => d.pv);
             const loadData = filteredData.map(d => d.load);
@@ -266,10 +270,23 @@ if (viewMode === 'weekly') {
             const batteryData = filteredData.map(d => d.battery);
             const socData = filteredData.map(d => d.soc);
 
-            renderChart(labels, pvData, loadData, gridData, batteryData, socData);
+            // 💡 ส่วนที่เพิ่มใหม่: เตรียมข้อมูลพล็อตจุดแดงแจ้งเตือน (Red Dots)
+            const gridToBatData = filteredData.map(d => {
+                const hour = new Date(d.time).getHours();
+                const isDaytime = (hour >= 6 && hour < 18);
+                // ถ้าเป็นกลางวัน + ดึงไฟหลวง + แบตเตอรี่ชาร์จเข้า
+                if (isDaytime && d.grid > 0 && d.battery > 0) {
+                    return Math.min(d.grid, d.battery); // พล็อตจุดตรงระดับพลังงาน (W) ที่ถูกชาร์จ
+                }
+                return null; // เวลาอื่นส่งค่า null เพื่อไม่ให้วาดจุด
+            });
+
+            // 💡 อย่าลืมส่ง gridToBatData ต่อไปให้ renderChart ด้วย
+            renderChart(labels, pvData, loadData, gridData, batteryData, socData, gridToBatData);
         }
 
-        function renderChart(labels, pv, load, grid, battery, soc) {
+// 💡 แก้ไขบรรทัดนี้: เพิ่ม gridToBat เข้ามาในวงเล็บ
+        function renderChart(labels, pv, load, grid, battery, soc, gridToBat) {
             const ctx = document.getElementById('ecosChart').getContext('2d');
             
             if (ecosChart) {
@@ -290,10 +307,25 @@ if (viewMode === 'weekly') {
                         { label: 'Load (W)', data: load, yAxisID: 'y', borderColor: '#8B5CF6', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
                         { label: 'Grid Power (W)', data: grid, yAxisID: 'y', borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
                         { label: 'Battery Power (W)', data: battery, yAxisID: 'y', borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
-                        { label: 'Battery SOC (%)', data: soc, yAxisID: 'y1', borderColor: '#3B82F6', borderDash: [5, 5], borderWidth: 2, tension: lineTension, pointRadius: pRadius }
+                        { label: 'Battery SOC (%)', data: soc, yAxisID: 'y1', borderColor: '#3B82F6', borderDash: [5, 5], borderWidth: 2, tension: lineTension, pointRadius: pRadius },
+                        
+                        // 💡 ส่วนที่เพิ่มใหม่: กราฟจุดแจ้งเตือน (Red Dots)
+                        {
+                            label: '⚠️ กริดชาร์จแบต (W)',
+                            data: gridToBat,
+                            yAxisID: 'y',
+                            borderColor: '#DC2626',
+                            backgroundColor: '#EF4444',
+                            borderWidth: 2,
+                            pointRadius: 6,         // สั่งให้จุดใหญ่เป็นพิเศษ (ขนาด 6)
+                            pointHoverRadius: 8,    // ตอนเอาเมาส์ชี้ให้ขยายใหญ่ขึ้น
+                            pointStyle: 'circle',
+                            showLine: false         // 💡 สั่งไม่ให้วาดเส้นเชื่อม ให้โชว์แค่ "จุดลอยๆ"
+                        }
                     ]
                 },
                 options: {
+                    // ... (ส่วน options คงเดิมทั้งหมด)
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
