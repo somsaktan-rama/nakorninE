@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECOS Solar Dashboard 1.00</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
+</head>
+<body class="bg-gray-50 p-4 md:p-8">
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">พฤติกรรมการใช้ไฟฟ้ารายวัน/สัปดาห์ (ECOS)</h1>
+            
+            <!-- ปุ่มสลับมุมมอง รายวัน / รายสัปดาห์ -->
+            <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
+                <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
+                <button id="btnWeekly" onclick="setViewMode('weekly')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition">รายสัปดาห์ (Weekly)</button>
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap gap-4 mb-6 items-end">
+            <div>
+                <label id="dateLabel" class="block text-sm font-medium text-gray-600 mb-1">เลือกวันที่</label>
+                <input type="date" id="datePicker" class="border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <button onclick="updateChart()" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition">ดึงข้อมูล</button>
+            <span id="loading" class="text-gray-500 hidden animate-pulse">กำลังโหลดข้อมูล...</span>
+        </div>
+
+        <!-- กล่องแจ้งเตือนช่วงวันที่ที่กำลังแสดง (สำหรับรายสัปดาห์) -->
+        <div id="dateRangeDisplay" class="text-sm text-gray-500 mb-4 hidden">
+            กำลังแสดงข้อมูลตั้งแต่ <span id="startDateText" class="font-semibold text-gray-700"></span> ถึง <span id="endDateText" class="font-semibold text-gray-700"></span>
+        </div>
+
+        <div class="relative h-[60vh] w-full">
+            <canvas id="ecosChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // 🛑 นำ Web App URL ที่ได้จาก Google Apps Script มาใส่ตรงนี้
+        const API_URL = "https://script.google.com/macros/s/AKfycbwIFyVVb3zwo3cYjZ7d_xRvOJlY6KyK2tgREdeYNZOnCXiXINPFYRGscc8f7K6L1YY/exec"; 
+        
+        let ecosChart;
+        let allData = [];
+        let viewMode = 'daily'; // เริ่มต้นที่รายวัน
+
+        // ตั้งค่า Datepicker ให้เป็นวันปัจจุบัน
+        document.getElementById('datePicker').valueAsDate = new Date();
+
+        async function fetchGoogleSheetData() {
+            document.getElementById('loading').classList.remove('hidden');
+            try {
+                const response = await fetch(API_URL);
+                allData = await response.json();
+                updateChart();
+            } catch (error) {
+                alert("เกิดข้อผิดพลาดในการดึงข้อมูล: " + error + "\nโปรดตรวจสอบว่า Web App URL ถูกต้องและปรับสิทธิ์เป็น 'Anyone' แล้ว");
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        // ฟังก์ชันสลับโหมดปุ่ม
+        function setViewMode(mode) {
+            viewMode = mode;
+            const btnDaily = document.getElementById('btnDaily');
+            const btnWeekly = document.getElementById('btnWeekly');
+            const dateLabel = document.getElementById('dateLabel');
+            const dateRangeDisplay = document.getElementById('dateRangeDisplay');
+
+            if (mode === 'daily') {
+                btnDaily.classList.add('bg-white', 'shadow', 'text-blue-600');
+                btnDaily.classList.remove('text-gray-500');
+                btnWeekly.classList.add('text-gray-500');
+                btnWeekly.classList.remove('bg-white', 'shadow', 'text-blue-600');
+                dateLabel.innerText = "เลือกวันที่";
+                dateRangeDisplay.classList.add('hidden');
+            } else {
+                btnWeekly.classList.add('bg-white', 'shadow', 'text-blue-600');
+                btnWeekly.classList.remove('text-gray-500');
+                btnDaily.classList.add('text-gray-500');
+                btnDaily.classList.remove('bg-white', 'shadow', 'text-blue-600');
+                dateLabel.innerText = "เลือกวันในสัปดาห์ที่ต้องการ";
+                dateRangeDisplay.classList.remove('hidden');
+            }
+            
+            if (allData.length > 0) {
+                updateChart();
+            }
+        }
+
+        function updateChart() {
+            if (allData.length === 0) {
+                console.log("ยังไม่มีข้อมูลในระบบ");
+                return;
+            }
+
+            const selectedDateStr = document.getElementById('datePicker').value; // YYYY-MM-DD
+            if (!selectedDateStr) return;
+            
+            const selectedDateObj = new Date(selectedDateStr);
+            selectedDateObj.setHours(0,0,0,0);
+            let filteredData = [];
+
+            if (viewMode === 'daily') {
+                filteredData = allData.filter(d => {
+                    const dDate = new Date(d.time);
+                    dDate.setHours(0,0,0,0);
+                    return dDate.getTime() === selectedDateObj.getTime();
+                });
+            } else if (viewMode === 'weekly') {
+                // คำนวณหาวันจันทร์ (Start of Week) และวันอาทิตย์ (End of Week)
+                const dayOfWeek = selectedDateObj.getDay() || 7; // 1-7 (จันทร์-อาทิตย์)
+                
+                const startOfWeek = new Date(selectedDateObj);
+                startOfWeek.setDate(selectedDateObj.getDate() - dayOfWeek + 1);
+                
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 6);
+                endOfWeek.setHours(23, 59, 59, 999);
+
+                // แสดงข้อความวันที่
+                document.getElementById('startDateText').innerText = startOfWeek.toLocaleDateString('th-TH');
+                document.getElementById('endDateText').innerText = endOfWeek.toLocaleDateString('th-TH');
+
+                filteredData = allData.filter(d => {
+                    const dataTime = d.time;
+                    return dataTime >= startOfWeek.getTime() && dataTime <= endOfWeek.getTime();
+                });
+            }
+
+            // กรองข้อมูลเสร็จ แยกใส่ Array
+            const labels = filteredData.map(d => d.time);
+            const pvData = filteredData.map(d => d.pv);
+            const loadData = filteredData.map(d => d.load);
+            const gridData = filteredData.map(d => d.grid);
+            const batteryData = filteredData.map(d => d.battery);
+
+            renderChart(labels, pvData, loadData, gridData, batteryData);
+        }
+
+        function renderChart(labels, pv, load, grid, battery) {
+            const ctx = document.getElementById('ecosChart').getContext('2d');
+            
+            if (ecosChart) {
+                ecosChart.destroy();
+            }
+
+            // ถ้าเป็นรายสัปดาห์ จุดข้อมูลจะเยอะ (96*7 = 672 จุด) ซ่อนจุดเพื่อความสวยงาม
+            const pRadius = viewMode === 'weekly' ? 0 : (labels.length < 50 ? 2 : 0);
+            const lineTension = 0.4;
+            // ปรับแกน X ถ้าดูรายสัปดาห์ให้โชว์เป็นชื่อวัน
+            const xUnit = viewMode === 'weekly' ? 'day' : 'hour';
+            const xFormat = viewMode === 'weekly' ? 'dd DD MMM' : 'HH:mm';
+
+            ecosChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Solar PV (W)', data: pv, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Load (W)', data: load, borderColor: '#8B5CF6', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Grid Power (W)', data: grid, borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Battery Power (W)', data: battery, borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { tooltip: { enabled: true } },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: xUnit, tooltipFormat: 'DD MMM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd DD MMM' } },
+                            title: { display: false }
+                        },
+                        y: { 
+                            title: { display: true, text: 'พลังงาน (Watt)' },
+                            beginAtZero: true 
+                        }
+                    }
+                }
+            });
+        }
+
+        // ดึงข้อมูลเมื่อโหลดหน้าเว็บ
+        fetchGoogleSheetData();
+    </script>
+</body>
+</html>
