@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.00</title>
+    <title>ECOS Solar Dashboard 1.01</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -14,7 +14,6 @@
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
             <h1 class="text-2xl font-bold text-gray-800">พฤติกรรมการใช้ไฟฟ้ารายวัน/สัปดาห์ (ECOS)</h1>
             
-            <!-- ปุ่มสลับมุมมอง รายวัน / รายสัปดาห์ -->
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
                 <button id="btnWeekly" onclick="setViewMode('weekly')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition">รายสัปดาห์ (Weekly)</button>
@@ -30,7 +29,6 @@
             <span id="loading" class="text-gray-500 hidden animate-pulse">กำลังโหลดข้อมูล...</span>
         </div>
 
-        <!-- กล่องแจ้งเตือนช่วงวันที่ที่กำลังแสดง (สำหรับรายสัปดาห์) -->
         <div id="dateRangeDisplay" class="text-sm text-gray-500 mb-4 hidden">
             กำลังแสดงข้อมูลตั้งแต่ <span id="startDateText" class="font-semibold text-gray-700"></span> ถึง <span id="endDateText" class="font-semibold text-gray-700"></span>
         </div>
@@ -46,9 +44,8 @@
         
         let ecosChart;
         let allData = [];
-        let viewMode = 'daily'; // เริ่มต้นที่รายวัน
+        let viewMode = 'daily'; 
 
-        // ตั้งค่า Datepicker ให้เป็นวันปัจจุบัน
         document.getElementById('datePicker').valueAsDate = new Date();
 
         async function fetchGoogleSheetData() {
@@ -64,7 +61,6 @@
             }
         }
 
-        // ฟังก์ชันสลับโหมดปุ่ม
         function setViewMode(mode) {
             viewMode = mode;
             const btnDaily = document.getElementById('btnDaily');
@@ -94,12 +90,9 @@
         }
 
         function updateChart() {
-            if (allData.length === 0) {
-                console.log("ยังไม่มีข้อมูลในระบบ");
-                return;
-            }
+            if (allData.length === 0) return;
 
-            const selectedDateStr = document.getElementById('datePicker').value; // YYYY-MM-DD
+            const selectedDateStr = document.getElementById('datePicker').value; 
             if (!selectedDateStr) return;
             
             const selectedDateObj = new Date(selectedDateStr);
@@ -113,8 +106,7 @@
                     return dDate.getTime() === selectedDateObj.getTime();
                 });
             } else if (viewMode === 'weekly') {
-                // คำนวณหาวันจันทร์ (Start of Week) และวันอาทิตย์ (End of Week)
-                const dayOfWeek = selectedDateObj.getDay() || 7; // 1-7 (จันทร์-อาทิตย์)
+                const dayOfWeek = selectedDateObj.getDay() || 7; 
                 
                 const startOfWeek = new Date(selectedDateObj);
                 startOfWeek.setDate(selectedDateObj.getDate() - dayOfWeek + 1);
@@ -123,7 +115,6 @@
                 endOfWeek.setDate(startOfWeek.getDate() + 6);
                 endOfWeek.setHours(23, 59, 59, 999);
 
-                // แสดงข้อความวันที่
                 document.getElementById('startDateText').innerText = startOfWeek.toLocaleDateString('th-TH');
                 document.getElementById('endDateText').innerText = endOfWeek.toLocaleDateString('th-TH');
 
@@ -133,27 +124,27 @@
                 });
             }
 
-            // กรองข้อมูลเสร็จ แยกใส่ Array
+            // เพิ่ม socData เข้ามา
             const labels = filteredData.map(d => d.time);
             const pvData = filteredData.map(d => d.pv);
             const loadData = filteredData.map(d => d.load);
             const gridData = filteredData.map(d => d.grid);
             const batteryData = filteredData.map(d => d.battery);
+            const socData = filteredData.map(d => d.soc);
 
-            renderChart(labels, pvData, loadData, gridData, batteryData);
+            renderChart(labels, pvData, loadData, gridData, batteryData, socData);
         }
 
-        function renderChart(labels, pv, load, grid, battery) {
+        // อัปเดตฟังก์ชัน renderChart เพื่อรับ SOC และเพิ่มแกน y1
+        function renderChart(labels, pv, load, grid, battery, soc) {
             const ctx = document.getElementById('ecosChart').getContext('2d');
             
             if (ecosChart) {
                 ecosChart.destroy();
             }
 
-            // ถ้าเป็นรายสัปดาห์ จุดข้อมูลจะเยอะ (96*7 = 672 จุด) ซ่อนจุดเพื่อความสวยงาม
             const pRadius = viewMode === 'weekly' ? 0 : (labels.length < 50 ? 2 : 0);
             const lineTension = 0.4;
-            // ปรับแกน X ถ้าดูรายสัปดาห์ให้โชว์เป็นชื่อวัน
             const xUnit = viewMode === 'weekly' ? 'day' : 'hour';
             const xFormat = viewMode === 'weekly' ? 'dd DD MMM' : 'HH:mm';
 
@@ -162,10 +153,28 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Solar PV (W)', data: pv, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
-                        { label: 'Load (W)', data: load, borderColor: '#8B5CF6', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
-                        { label: 'Grid Power (W)', data: grid, borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
-                        { label: 'Battery Power (W)', data: battery, borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius }
+                        { 
+                            label: 'Solar PV (W)', data: pv, yAxisID: 'y', 
+                            borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius 
+                        },
+                        { 
+                            label: 'Load (W)', data: load, yAxisID: 'y', 
+                            borderColor: '#8B5CF6', borderWidth: 2, tension: lineTension, pointRadius: pRadius 
+                        },
+                        { 
+                            label: 'Grid Power (W)', data: grid, yAxisID: 'y', 
+                            borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius 
+                        },
+                        { 
+                            label: 'Battery Power (W)', data: battery, yAxisID: 'y', 
+                            borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius 
+                        },
+                        { 
+                            // เพิ่ม Dataset ใหม่สำหรับ Battery SOC
+                            label: 'Battery SOC (%)', data: soc, yAxisID: 'y1', 
+                            borderColor: '#3B82F6', borderDash: [5, 5], // สีฟ้าและเป็นเส้นประ
+                            borderWidth: 2, tension: lineTension, pointRadius: pRadius 
+                        }
                     ]
                 },
                 options: {
@@ -179,16 +188,29 @@
                             time: { unit: xUnit, tooltipFormat: 'DD MMM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd DD MMM' } },
                             title: { display: false }
                         },
+                        // แกน Y ฝั่งซ้าย สำหรับพลังงาน (W)
                         y: { 
+                            type: 'linear',
+                            position: 'left',
                             title: { display: true, text: 'พลังงาน (Watt)' },
                             beginAtZero: true 
+                        },
+                        // แกน Y ฝั่งขวา สำหรับ SOC (%)
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'ความจุแบตเตอรี่ (%)', color: '#3B82F6' },
+                            min: 0,
+                            max: 100,
+                            // ปิดเส้น Grid ฝั่งขวา เพื่อไม่ให้ซ้อนทับกับฝั่งซ้ายจนดูรก
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#3B82F6' } // เปลี่ยนสีตัวเลขแกน Y ให้ตรงกับสีเส้น
                         }
                     }
                 }
             });
         }
 
-        // ดึงข้อมูลเมื่อโหลดหน้าเว็บ
         fetchGoogleSheetData();
     </script>
 </body>
