@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.07</title>
+    <title>ECOS Solar Dashboard 1.08</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.07</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.08</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -195,6 +195,7 @@
             }
 
             let totalPvW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0, totalGridToBatteryW = 0;
+            let totalAcSolarW = 0; // 💡 เพิ่มตัวแปรสำหรับ AC Solar
             const dailySummaries = {}; 
 
             filteredData.forEach(d => {
@@ -202,8 +203,20 @@
                 const hour = dDate.getHours();
                 const isDaytime = (hour >= 6 && hour < 18);
 
+                // 💡 แก้ไขสมการ Load ใหม่เพื่อรองรับ AC-Coupling
+                let actualLoad = d.load;
+                let acSolar = 0;
+
+                // หาก Load ติดลบ (หรือต่ำผิดปกติใกล้ 0 ทั้งที่มีการใช้ไฟแน่ๆ) ในช่วงกลางวัน 
+                // แสดงว่ามีไฟจาก Huawei วิ่งย้อนเข้ามาในระบบ ECOS เพื่อชาร์จแบตหรือจ่ายบ้าน
+                if (actualLoad < 0) {
+                    acSolar = Math.abs(actualLoad); // อนุมานพลังงานจาก Huawei
+                    actualLoad = 0; // บังคับ Load บ้านไม่ให้ติดลบ (หรืออาจตั้งเป็น Base Load ต่ำสุดของบ้าน)
+                }
+
                 totalPvW += d.pv;
                 totalGridW += d.grid;
+                totalAcSolarW += acSolar; // รวมค่า Huawei
                 
                 if (d.battery < 0) {
                     totalBatteryW += Math.abs(d.battery);
@@ -214,23 +227,26 @@
                     totalGridToBatteryW += gridToBattery;
                 }
 
+                // ใช้ actualLoad ที่แก้ค่าติดลบแล้วไปคำนวณต่อ
                 if (isDaytime) {
-                    totalLoadDayW += d.load;
+                    totalLoadDayW += actualLoad;
                 } else {
-                    totalLoadNightW += d.load;
+                    totalLoadNightW += actualLoad;
                 }
 
                 if (viewMode === 'weekly') {
                     const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
                     
                     if (!dailySummaries[dateStr]) {
-                        dailySummaries[dateStr] = { pv: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBattery: 0 };
+                        dailySummaries[dateStr] = { pv: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBattery: 0, acSolar: 0 };
                     }
                     dailySummaries[dateStr].pv += d.pv;
                     dailySummaries[dateStr].grid += d.grid;
+                    dailySummaries[dateStr].acSolar += acSolar; // เก็บค่า Huawei แยกรายวัน
+                    
                     if (d.battery < 0) { dailySummaries[dateStr].battery += Math.abs(d.battery); }
-                    if (isDaytime) { dailySummaries[dateStr].loadDay += d.load; } 
-                    else { dailySummaries[dateStr].loadNight += d.load; }
+                    if (isDaytime) { dailySummaries[dateStr].loadDay += actualLoad; } 
+                    else { dailySummaries[dateStr].loadNight += actualLoad; }
                     
                     if (isDaytime && d.grid > 0 && d.battery > 0) {
                         dailySummaries[dateStr].gridToBattery += Math.min(d.grid, d.battery);
@@ -238,7 +254,16 @@
                 }
             });
 
+            // อัปเดต Scorecards
             document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+            
+            // 💡 อัปเดต Label ของโซลาร์เซลล์ให้รวม Huawei ด้วย หากมีการตรวจพบ
+            if(totalAcSolarW > 0){
+                const totalAllSolar = (totalPvW + totalAcSolarW) / 4000;
+                document.getElementById('sumSolar').innerHTML = totalAllSolar.toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+                document.getElementById('labelSolar').innerText = '🌞 โซลาร์เซลล์ (ECOS + AC)'; 
+            }
+
             document.getElementById('sumLoadDay').innerHTML = (totalLoadDayW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             document.getElementById('sumLoadNight').innerHTML = (totalLoadNightW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             document.getElementById('sumGrid').innerHTML = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
@@ -246,7 +271,6 @@
             document.getElementById('sumGridToBattery').innerHTML = (totalGridToBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-rose-400">kWh</span>';
 
             const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
-            document.getElementById('labelSolar').innerText = '🌞 โซลาร์เซลล์ ' + labelSuffix;
             document.getElementById('labelLoadDay').innerText = '☀️ ไฟบ้านกลางวัน ' + labelSuffix;
             document.getElementById('labelLoadNight').innerText = '🌙 ไฟบ้านกลางคืน ' + labelSuffix;
             document.getElementById('labelGrid').innerText = '🏢 ไฟหลวง ' + labelSuffix;
@@ -258,11 +282,13 @@
                 for (const [date, sums] of Object.entries(dailySummaries)) {
                     const gridToBatKwh = (sums.gridToBattery / 4000).toFixed(2);
                     const warningClass = gridToBatKwh > 0.1 ? 'bg-rose-50 text-rose-600 font-bold' : 'text-gray-400';
+                    // นำ AC Solar ไปบวกรวมกับ PV สำหรับแสดงในตารางรายวัน
+                    const totalDailyPv = (sums.pv + sums.acSolar) / 4000;
 
                     tableHTML += `
                         <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
                             <td class="py-3 px-4">${date}</td>
-                            <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
+                            <td class="py-3 px-4 text-amber-600 font-semibold">${totalDailyPv.toFixed(2)}</td>
                             <td class="py-3 px-4 text-amber-700 font-semibold">${(sums.loadDay / 4000).toFixed(2)}</td>
                             <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
                             <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
@@ -276,10 +302,15 @@
             
             const labels = filteredData.map(d => d.time);
             const pvData = filteredData.map(d => d.pv);
-            const loadData = filteredData.map(d => d.load);
             const gridData = filteredData.map(d => d.grid);
             const batteryData = filteredData.map(d => d.battery);
             const socData = filteredData.map(d => d.soc);
+
+            // 💡 แมปข้อมูล Load ใหม่ที่แก้ค่าติดลบแล้ว เพื่อส่งให้กราฟ
+            const loadData = filteredData.map(d => d.load < 0 ? 0 : d.load);
+            
+            // 💡 แมปข้อมูล AC Solar (จากค่า Load ที่ติดลบ)
+            const acSolarData = filteredData.map(d => d.load < 0 ? Math.abs(d.load) : null);
 
             const gridToBatData = filteredData.map(d => {
                 const hour = new Date(d.time).getHours();
@@ -290,10 +321,12 @@
                 return null; 
             });
 
-            renderChart(labels, pvData, loadData, gridData, batteryData, socData, gridToBatData);
+            // 💡 ส่ง acSolarData เพิ่มเข้าไปใน renderChart
+            renderChart(labels, pvData, loadData, gridData, batteryData, socData, gridToBatData, acSolarData);
         }
 
-        function renderChart(labels, pv, load, grid, battery, soc, gridToBat) {
+        // 💡 รับตัวแปร acSolar เพิ่มเติมในฟังก์ชัน renderChart
+        function renderChart(labels, pv, load, grid, battery, soc, gridToBat, acSolar) {
             const ctx = document.getElementById('ecosChart').getContext('2d');
             
             if (ecosChart) {
@@ -309,7 +342,9 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Solar PV (W)', data: pv, yAxisID: 'y', borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Solar PV ECOS (W)', data: pv, yAxisID: 'y', borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
+                        // 💡 เพิ่มเส้นกราฟ AC Solar (Huawei) สีส้มเข้ม
+                        { label: 'AC Solar Huawei (W)', data: acSolar, yAxisID: 'y', borderColor: '#EA580C', borderDash: [3, 3], borderWidth: 2, fill: false, tension: lineTension, pointRadius: pRadius },
                         { label: 'Load (W)', data: load, yAxisID: 'y', borderColor: '#8B5CF6', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
                         { label: 'Grid Power (W)', data: grid, yAxisID: 'y', borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
                         { label: 'Battery Power (W)', data: battery, yAxisID: 'y', borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
@@ -329,6 +364,7 @@
                     ]
                 },
                 options: {
+                    // ... (ส่วน options คงเดิมทั้งหมด)
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
