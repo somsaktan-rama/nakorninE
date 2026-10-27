@@ -248,3 +248,41 @@
             
             if (ecosChart) {
                 ecosChart.destroy();
+            }
+
+            const pRadius = viewMode === 'weekly' ? 0 : (labels.length < 50 ? 2 : 0);
+            const lineTension = 0.4;
+            const xUnit = viewMode === 'weekly' ? 'day' : 'hour';
+            const xFormat = viewMode === 'weekly' ? 'dd DD MMM' : 'HH:mm';
+
+            ecosChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Solar PV (W)', data: pv, yAxisID: 'y', borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Load (W)', data: load, yAxisID: 'y', borderColor: '#8B5CF6', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Grid Power (W)', data: grid, yAxisID: 'y', borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Battery Power (W)', data: battery, yAxisID: 'y', borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
+                        { label: 'Battery SOC (%)', data: soc, yAxisID: 'y1', borderColor: '#3B82F6', borderDash: [5, 5], borderWidth: 2, tension: lineTension, pointRadius: pRadius }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { tooltip: { enabled: true } },
+                    scales: {
+                        x: { type: 'time', time: { unit: xUnit, tooltipFormat: 'DD MMM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd DD MMM' } }, title: { display: false } },
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'พลังงาน (Watt)' }, beginAtZero: true },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'ความจุแบตเตอรี่ (%)', color: '#3B82F6' }, min: 0, max: 100, grid: { drawOnChartArea: false }, ticks: { color: '#3B82F6' } }
+                    }
+                }
+            });
+        }
+
+        fetchGoogleSheetData();
+        setInterval(fetchGoogleSheetData, 15 * 60 * 1000);
+    </script>
+</body>
+</html>
