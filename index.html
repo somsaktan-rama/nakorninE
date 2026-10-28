@@ -41,8 +41,8 @@
             <div class="mb-4 md:mb-0">
                 <h3 class="text-lg font-bold text-blue-800">💰 สรุปความคุ้มค่าพลังงาน (TOU)</h3>
                 <p class="text-sm text-blue-600 mt-1">
-                    <span class="inline-block bg-blue-100 px-2 py-1 rounded text-xs font-semibold mr-2">On-Peak (09-22 น. จ.-ศ.): ~5.8 ฿/หน่วย</span>
-                    <span class="inline-block bg-indigo-100 px-2 py-1 rounded text-xs font-semibold">Off-Peak (เวลาที่เหลือ/ส.-อา.): ~2.6 ฿/หน่วย</span>
+                    <span class="inline-block bg-blue-100 px-2 py-1 rounded text-xs font-semibold mr-2">On-Peak (09-22 น. จ.-ศ.): ~6.38 ฿/หน่วย</span>
+                    <span class="inline-block bg-indigo-100 px-2 py-1 rounded text-xs font-semibold">Off-Peak (เวลาที่เหลือ/ส.-อา.): ~3.17 ฿/หน่วย</span>
                 </p>
             </div>
             <div class="flex gap-4 sm:gap-6">
@@ -221,9 +221,9 @@ function updateChart() {
                 });
             }
 
-            // 💡 ตั้งค่าเรทราคาค่าไฟ TOU (รวม Ft และ VAT โดยประมาณ)
-            const RATE_ON_PEAK = 5.80; 
-            const RATE_OFF_PEAK = 2.60;
+            // 💡 ตั้งค่าเรทราคาค่าไฟ TOU (รวม Ft และ VAT)
+            const RATE_ON_PEAK = 6.38; 
+            const RATE_OFF_PEAK = 3.17;
 
             let totalPvW = 0, totalAcSolarW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0, totalGridToBatteryW = 0;
             
