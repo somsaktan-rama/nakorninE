@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.09</title>
+    <title>ECOS Solar Dashboard 1.10</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.09</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.10</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -34,13 +34,12 @@
             กำลังแสดงข้อมูลตั้งแต่ <span id="startDateText" class="font-semibold text-gray-700"></span> ถึง <span id="endDateText" class="font-semibold text-gray-700"></span>
         </div>
 
-        <!-- 💡 แก้ไข: กล่อง Scorecards แยก ECOS และ Huawei ชัดเจน (ปรับ Grid ให้รองรับ 7 กล่อง) -->
+        <!-- กล่อง Scorecards แยก ECOS และ Huawei -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
             <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
                 <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์ (ECOS)</span>
                 <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
             </div>
-            <!-- กล่องใหม่: AC Solar Huawei -->
             <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm flex flex-col">
                 <span id="labelAcSolar" class="text-orange-600 text-sm font-semibold mb-1">🌞 โซลาร์ (Huawei)</span>
                 <span id="sumAcSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
@@ -86,7 +85,7 @@
                         </tr>
                     </thead>
                     <tbody id="weeklyTableBody" class="divide-y divide-gray-100">
-                        <!-- ข้อมูลจะถูกแทรกที่นี่ด้วย JS -->
+                        <!-- ข้อมูลตาราง -->
                     </tbody>
                 </table>
             </div>
@@ -98,6 +97,7 @@
     </div>
 
     <script>
+        // 🛑 นำ Web App URL ที่เพิ่ง Deploy ใหม่มาใส่ตรงนี้
         const API_URL = "https://script.google.com/macros/s/AKfycbwIFyVVb3zwo3cYjZ7d_xRvOJlY6KyK2tgREdeYNZOnCXiXINPFYRGscc8f7K6L1YY/exec"; 
         
         let ecosChart;
@@ -203,14 +203,12 @@
                 const hour = dDate.getHours();
                 const isDaytime = (hour >= 6 && hour < 18);
 
-                let actualLoad = d.load;
-                let acSolar = 0;
-
-                // แก้สมการ Load ติดลบ เพื่อแยกว่าเป็นไฟจาก Huawei (AC Solar)
-                if (actualLoad < 0) {
-                    acSolar = Math.abs(actualLoad);
-                    actualLoad = 0; 
-                }
+                // 💡 แก้สมการ Load ใหม่โดยอิงข้อมูลจริงจาก JSON (ทิ้งสมการติดลบ)
+                const acSolar = d.huawei || 0;
+                
+                // โหลดบ้านที่แท้จริง = โหลดที่ ECOS อ่านได้ + โหลดที่ Huawei ช่วยจ่าย
+                let actualLoad = d.load + acSolar;
+                if (actualLoad < 0) actualLoad = 0; // ป้องกันความคลาดเคลื่อนทางเวลา
 
                 totalPvW += d.pv;
                 totalAcSolarW += acSolar;
@@ -250,7 +248,6 @@
                 }
             });
 
-            // 💡 แสดงผล Scorecards แยกช่อง ECOS และ Huawei 
             document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             document.getElementById('sumAcSolar').innerHTML = (totalAcSolarW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             
@@ -275,7 +272,6 @@
                     const gridToBatKwh = (sums.gridToBattery / 4000).toFixed(2);
                     const warningClass = gridToBatKwh > 0.1 ? 'bg-rose-50 text-rose-600 font-bold' : 'text-gray-400';
 
-                    // 💡 แสดงข้อมูลแยกคอลัมน์ในตาราง
                     tableHTML += `
                         <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
                             <td class="py-3 px-4">${date}</td>
@@ -298,8 +294,9 @@
             const batteryData = filteredData.map(d => d.battery);
             const socData = filteredData.map(d => d.soc);
 
-            const loadData = filteredData.map(d => d.load < 0 ? 0 : d.load);
-            const acSolarData = filteredData.map(d => d.load < 0 ? Math.abs(d.load) : null);
+            // 💡 กราฟดึงข้อมูลจริงจากคอลัมน์ G (d.huawei) มาพล็อตแล้ว!
+            const acSolarData = filteredData.map(d => d.huawei || 0);
+            const loadData = filteredData.map(d => Math.max(0, d.load + (d.huawei || 0)));
 
             const gridToBatData = filteredData.map(d => {
                 const hour = new Date(d.time).getHours();
@@ -330,7 +327,8 @@
                     labels: labels,
                     datasets: [
                         { label: 'Solar PV ECOS (W)', data: pv, yAxisID: 'y', borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
-                        { label: 'AC Solar Huawei (W)', data: acSolar, yAxisID: 'y', borderColor: '#EA580C', borderDash: [3, 3], borderWidth: 2, fill: false, tension: lineTension, pointRadius: pRadius },
+                        // 💡 เปลี่ยนเส้น Huawei เป็นเส้นทึบสวยๆ
+                        { label: 'AC Solar Huawei (W)', data: acSolar, yAxisID: 'y', borderColor: '#EA580C', backgroundColor: 'rgba(234, 88, 12, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
                         { label: 'Load (W)', data: load, yAxisID: 'y', borderColor: '#8B5CF6', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
                         { label: 'Grid Power (W)', data: grid, yAxisID: 'y', borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: lineTension, pointRadius: pRadius },
                         { label: 'Battery Power (W)', data: battery, yAxisID: 'y', borderColor: '#10B981', borderWidth: 2, tension: lineTension, pointRadius: pRadius },
