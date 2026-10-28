@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.11</title>
+    <title>ECOS Solar Dashboard 1.12</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.11</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.12</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -34,9 +34,7 @@
             กำลังแสดงข้อมูลตั้งแต่ <span id="startDateText" class="font-semibold text-gray-700"></span> ถึง <span id="endDateText" class="font-semibold text-gray-700"></span>
         </div>
 
-        <!-- ========================================== -->
-        <!-- 💰 วางโค้ดกล่องสรุปการเงิน TOU ตรงนี้ครับ 💰 -->
-        <!-- ========================================== -->
+        <!-- 💰 กล่องสรุปการเงิน TOU (On-Peak / Off-Peak) -->
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-100 shadow-sm mb-6 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0">
                 <h3 class="text-lg font-bold text-blue-800">💰 สรุปความคุ้มค่าพลังงาน (TOU)</h3>
@@ -49,16 +47,17 @@
                 <div class="text-right bg-white p-3 rounded-lg shadow-sm border border-red-50 min-w-[120px]">
                     <span class="block text-xs text-gray-500 font-medium mb-1">ค่าไฟหลวง (ประเมิน)</span>
                     <span id="touGridCost" class="text-2xl font-bold text-red-500">0.00 ฿</span>
-                    <span id="touGridDetails" class="block text-[10px] text-gray-400 mt-1">On: 0 | Off: 0</span>
+                    <span id="touGridDetails" class="block text-[10px] text-gray-400 mt-1">On: 0 ฿ | Off: 0 ฿</span>
+                    <span id="touGridKwh" class="block text-[10px] text-gray-500 mt-1 border-t pt-1 border-gray-100">On: 0 หน่วย | Off: 0 หน่วย</span>
                 </div>
                 <div class="text-right bg-white p-3 rounded-lg shadow-sm border border-emerald-50 min-w-[120px]">
                     <span class="block text-xs text-emerald-700 font-medium mb-1">โซลาร์ประหยัดเงินได้</span>
                     <span id="touSaved" class="text-2xl font-black text-emerald-600">0.00 ฿</span>
-                    <span id="touSavedDetails" class="block text-[10px] text-emerald-400 mt-1">On: 0 | Off: 0</span>
+                    <span id="touSavedDetails" class="block text-[10px] text-emerald-400 mt-1">On: 0 ฿ | Off: 0 ฿</span>
+                    <span id="touSavedKwh" class="block text-[10px] text-emerald-500 mt-1 border-t pt-1 border-emerald-50">On: 0 หน่วย | Off: 0 หน่วย</span>
                 </div>
             </div>
         </div>
-        <!-- ========================================== -->
         
         <!-- กล่อง Scorecards แยก ECOS และ Huawei -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
@@ -309,13 +308,19 @@ function updateChart() {
             const savedBaht = (savedOnPeakKwh * RATE_ON_PEAK) + (savedOffPeakKwh * RATE_OFF_PEAK);
             const gridCostBaht = (gridOnPeakKwh * RATE_ON_PEAK) + (gridOffPeakKwh * RATE_OFF_PEAK);
 
-            // 💡 แสดงผลตัวเลขลงในกล่อง TOU (เช็คก่อนว่ามีกล่องนี้อยู่ใน HTML หรือยังเพื่อป้องกัน Error)
+            // 💡 แสดงผลตัวเลขลงในกล่อง TOU
             if (document.getElementById('touGridCost')) {
+                // แสดงผลยอดรวมเป็นบาท
                 document.getElementById('touGridCost').innerText = gridCostBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
-                document.getElementById('touGridDetails').innerText = `On: ${(gridOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(gridOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
-                
                 document.getElementById('touSaved').innerText = savedBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
+
+                // แสดงรายละเอียดเป็นบาท แยก On/Off
+                document.getElementById('touGridDetails').innerText = `On: ${(gridOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(gridOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
                 document.getElementById('touSavedDetails').innerText = `On: ${(savedOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(savedOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
+
+                // 💡 แสดงรายละเอียดเป็นหน่วย kWh แยก On/Off (เพิ่มใหม่)
+                document.getElementById('touGridKwh').innerText = `On: ${gridOnPeakKwh.toFixed(1)} หน่วย | Off: ${gridOffPeakKwh.toFixed(1)} หน่วย`;
+                document.getElementById('touSavedKwh').innerText = `On: ${savedOnPeakKwh.toFixed(1)} หน่วย | Off: ${savedOffPeakKwh.toFixed(1)} หน่วย`;
             }
 
             document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
