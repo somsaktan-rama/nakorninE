@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.12</title>
+    <title>ECOS Solar Dashboard 1.13</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.12</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.13</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -34,6 +34,17 @@
             กำลังแสดงข้อมูลตั้งแต่ <span id="startDateText" class="font-semibold text-gray-700"></span> ถึง <span id="endDateText" class="font-semibold text-gray-700"></span>
         </div>
 
+        <!-- กล่องแจ้งเตือนสภาพอากาศและแบตเตอรี่ (ซ่อนไว้เป็นค่าเริ่มต้น) -->
+        <div id="weatherAlert" class="hidden mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl shadow-sm">
+            <div class="flex items-start md:items-center">
+                <div class="text-3xl mr-4 mt-1 md:mt-0">⛈️</div>
+                <div>
+                    <h3 class="text-blue-800 font-bold text-lg">คำแนะนำการตั้งค่าแบตเตอรี่คืนนี้</h3>
+                    <p id="weatherText" class="text-blue-700 text-sm mt-1 leading-relaxed"></p>
+                </div>
+            </div>
+        </div>
+        
         <!-- 💰 กล่องสรุปการเงิน TOU (On-Peak / Off-Peak) -->
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-100 shadow-sm mb-6 flex flex-col md:flex-row justify-between items-center">
             <div class="mb-4 md:mb-0">
@@ -437,6 +448,47 @@ function updateChart() {
 
         fetchGoogleSheetData();
         setInterval(fetchGoogleSheetData, 15 * 60 * 1000);
+
+        async function checkWeatherAndBatteryStrategy() {
+    const apiKey = '7d7a5c26a89bdb66053790f41706ab83';
+    // พิกัดละติจูด/ลองจิจูด โซนกรุงเทพฯ-ปทุมธานี
+    const lat = '13.824194'; 
+    const lon = '100.423138';
+    const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=th`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // ค้นหาพยากรณ์อากาศของวันพรุ่งนี้ช่วงเวลา 12:00 น.
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dateStr = tomorrow.toISOString().split('T')[0];
+        const tomorrowForecast = data.list.find(item => item.dt_txt.includes(`${dateStr} 12:00:00`));
+
+        if (tomorrowForecast) {
+            const pop = tomorrowForecast.pop * 100; // โอกาสเกิดฝน Probability of precipitation (0-100%)
+            const weatherDesc = tomorrowForecast.weather[0].description;
+            const cloudCover = tomorrowForecast.clouds.all; // เปอร์เซ็นต์เมฆปกคลุม
+
+            // เงื่อนไข: ถ้าโอกาสฝนตกเกิน 60% หรือมีเมฆบังเกิน 80%
+            if (pop >= 60 || cloudCover >= 80) {
+                document.getElementById('weatherAlert').classList.remove('hidden');
+                document.getElementById('weatherText').innerHTML = 
+                    `พยากรณ์อากาศพรุ่งนี้ช่วงกลางวันมี <b>"${weatherDesc}" (โอกาสฝนตก ${pop.toFixed(0)}%, เมฆ ${cloudCover}%)</b> โซลาร์เซลล์จะผลิตพลังงานได้ต่ำกว่าปกติ <br>
+                    <span class="inline-block mt-2 font-medium">💡 คำแนะนำ: แนะนำให้ตั้งค่าอินเวอร์เตอร์ดึงไฟหลวง (Grid) มาชาร์จแบตเตอรี่ 15.36 kWh ให้เต็ม 100% ในคืนนี้ช่วง <b>Off-Peak (22:00 - 09:00 น.)</b> เพื่อเตรียมสำรองไฟไว้ใช้ในช่วงกลางวันพรุ่งนี้ ป้องกันการถูกดึงไฟหลวงเรท On-Peak ที่มีราคาแพง</span>`;
+            } else {
+                document.getElementById('weatherAlert').classList.add('hidden');
+            }
+        }
+    } catch (error) {
+        console.error("ไม่สามารถโหลดข้อมูลสภาพอากาศได้:", error);
+    }
+}
+
+// สั่งให้ฟังก์ชันนี้ทำงานทันทีที่เปิดหน้าเว็บขึ้นมา
+checkWeatherAndBatteryStrategy();
+    
     </script>
 </body>
 </html>
