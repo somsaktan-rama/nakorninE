@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.14</title>
+    <title>ECOS Solar Dashboard 1.15</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.14</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.15</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -128,8 +128,9 @@
                             <th class="py-3 px-4 text-amber-700">☀️ โหลดกลางวัน</th>
                             <th class="py-3 px-4 text-indigo-600">🌙 โหลดกลางคืน</th>
                             <th class="py-3 px-4 text-red-600">🏢 ไฟหลวง</th>
-                            <th class="py-3 px-4 text-emerald-600">🔋 แบตฯ จ่าย</th>
-                            <th class="py-3 px-4 font-medium text-rose-600" title="ไฟหลวงที่รั่วไปชาร์จแบต">⚠️ กริดชาร์จแบต</th>
+                            <th class="py-3 px-4 font-medium text-emerald-600">🔋 แบตฯ จ่าย</th>
+                            <th class="py-3 px-4 font-medium text-rose-700" title="ชาร์จแบตเรทแพง 6.38 บาท">⚠️ กริดชาร์จ<br><span class="text-xs text-rose-500">(On-Peak)</span></th>
+                            <th class="py-3 px-4 font-medium text-sky-700" title="ชาร์จแบตเรทถูก 3.17 บาท">⚡ กริดชาร์จ<br><span class="text-xs text-sky-500">(Off-Peak)</span></th>
                         </tr>
                     </thead>
                     <tbody id="weeklyTableBody" class="divide-y divide-gray-100">
@@ -314,7 +315,7 @@ function updateChart() {
                     const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
                     
                     if (!dailySummaries[dateStr]) {
-                        dailySummaries[dateStr] = { pv: 0, acSolar: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBattery: 0 };
+                        dailySummaries[dateStr] = { pv: 0, acSolar: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBatOn: 0, gridToBatOff: 0 };
                     }
                     dailySummaries[dateStr].pv += d.pv;
                     dailySummaries[dateStr].acSolar += acSolar;
@@ -323,9 +324,14 @@ function updateChart() {
                     if (isDaytime) { dailySummaries[dateStr].loadDay += actualLoad; } 
                     else { dailySummaries[dateStr].loadNight += actualLoad; }
                     
-                    if (d.grid > 0 && d.battery > 0) { // 💡 ปลดล็อก isDaytime ออกเพื่อให้โชว์ในตารางด้วย
-                        dailySummaries[dateStr].gridToBattery += Math.min(d.grid, d.battery);
+                    if (d.grid > 0 && d.battery > 0) {
+                        const dailyGridToBat = Math.min(d.grid, d.battery);
+                            if (isOnPeak) {
+                                dailySummaries[dateStr].gridToBatOn += dailyGridToBat;
+                        } else {
+                                dailySummaries[dateStr].gridToBatOff += dailyGridToBat;
                     }
+                }
                 }
             });
 
@@ -384,19 +390,25 @@ function updateChart() {
                 document.getElementById('weeklyBreakdown').classList.remove('hidden');
                 let tableHTML = '';
                 for (const [date, sums] of Object.entries(dailySummaries)) {
-                    const gridToBatKwh = (sums.gridToBattery / 4000).toFixed(2);
-                    const warningClass = gridToBatKwh > 0.1 ? 'bg-rose-50 text-rose-600 font-bold' : 'text-gray-400';
+                    const batOnKwh = (sums.gridToBatOn / 4000).toFixed(2);
+                    const batOffKwh = (sums.gridToBatOff / 4000).toFixed(2);
+
+                    // ไฮไลต์สีแดงเข้ม ถ้ามีการดึงไฟแพงมาชาร์จ (ควรหลีกเลี่ยง)
+                        const warnOnClass = batOnKwh > 0.1 ? 'bg-rose-50 text-rose-700 font-bold' : 'text-gray-400';
+                    // ไฮไลต์สีฟ้าจางๆ ถ้าดึงไฟถูกมาชาร์จ (ยอมรับได้)
+                        const warnOffClass = batOffKwh > 0.1 ? 'bg-sky-50 text-sky-700 font-bold' : 'text-gray-400';
 
                     tableHTML += `
                         <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
-                            <td class="py-3 px-4">${date}</td>
+                            <td class="py-3 px-4 text-left">${date}</td>
                             <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
                             <td class="py-3 px-4 text-orange-600 font-semibold">${(sums.acSolar / 4000).toFixed(2)}</td>
                             <td class="py-3 px-4 text-amber-700 font-semibold">${(sums.loadDay / 4000).toFixed(2)}</td>
                             <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
                             <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
                             <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 ${warningClass}">${gridToBatKwh}</td>
+                            <td class="py-3 px-4 ${warnOnClass}">${batOnKwh}</td>
+                            <td class="py-3 px-4 ${warnOffClass}">${batOffKwh}</td>
                         </tr>
                     `;
                 }
