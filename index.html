@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.13</title>
+    <title>ECOS Solar Dashboard 1.14</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.13</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.14</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -71,36 +71,48 @@
         </div>
         
         <!-- กล่อง Scorecards แยก ECOS และ Huawei -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-            <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
-                <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์ (ECOS)</span>
-                <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm flex flex-col">
-                <span id="labelAcSolar" class="text-orange-600 text-sm font-semibold mb-1">🌞 โซลาร์ (Huawei)</span>
-                <span id="sumAcSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col">
-                <span id="labelLoadDay" class="text-amber-700 text-sm font-semibold mb-1">☀️ ไฟบ้าน (06-18 น.)</span>
-                <span id="sumLoadDay" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 shadow-sm flex flex-col">
-                <span id="labelLoadNight" class="text-indigo-600 text-sm font-semibold mb-1">🌙 ไฟบ้าน (18-06 น.)</span>
-                <span id="sumLoadNight" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm flex flex-col">
-                <span id="labelGrid" class="text-red-600 text-sm font-semibold mb-1">🏢 ไฟหลวง</span>
-                <span id="sumGrid" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col">
-                <span id="labelBattery" class="text-emerald-600 text-sm font-semibold mb-1">🔋 แบตเตอรี่จ่าย</span>
-                <span id="sumBattery" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
-            </div>
-            <div class="bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm flex flex-col">
-                <span class="text-rose-600 text-sm font-semibold mb-1" title="ดึงไฟหลวงมาชาร์จแบตช่วง 06:00-18:00 น.">⚠️ กริดชาร์จแบต</span>
-                <span id="sumGridToBattery" class="text-2xl font-bold text-rose-600">0.00 <span class="text-base font-normal text-rose-400">kWh</span></span>
-            </div>
-        </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
+        <span id="labelSolar" class="text-amber-600 text-sm font-semibold mb-1">🌞 โซลาร์ (ECOS)</span>
+        <span id="sumSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm flex flex-col">
+        <span id="labelAcSolar" class="text-orange-600 text-sm font-semibold mb-1">🌞 โซลาร์ (Huawei)</span>
+        <span id="sumAcSolar" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col">
+        <span id="labelLoadDay" class="text-amber-700 text-sm font-semibold mb-1">☀️ ไฟบ้าน (06-18 น.)</span>
+        <span id="sumLoadDay" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 shadow-sm flex flex-col">
+        <span id="labelLoadNight" class="text-indigo-600 text-sm font-semibold mb-1">🌙 ไฟบ้าน (18-06 น.)</span>
+        <span id="sumLoadNight" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm flex flex-col">
+        <span id="labelGrid" class="text-red-600 text-sm font-semibold mb-1">🏢 ไฟหลวง</span>
+        <span id="sumGrid" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col">
+        <span id="labelBattery" class="text-emerald-600 text-sm font-semibold mb-1">🔋 แบตเตอรี่จ่าย</span>
+        <span id="sumBattery" class="text-2xl font-bold text-gray-800">0.00 <span class="text-base font-normal text-gray-500">kWh</span></span>
+    </div>
+    
+    <!-- 🔴 กริดชาร์จแบต (On-Peak) - ค่าไฟแพง 6.38 บ. -->
+    <div class="bg-rose-50 p-4 rounded-xl border border-rose-300 shadow-sm flex flex-col">
+        <span class="text-rose-700 text-sm font-semibold mb-1" title="ดึงไฟหลวงมาชาร์จ จันทร์-ศุกร์ (09:00-21:59 น.)">⚠️ กริดชาร์จ (On-Peak)</span>
+        <span id="sumGridChargeOnPeak" class="text-2xl font-bold text-rose-700">0.00 <span class="text-base font-normal text-rose-500">kWh</span></span>
+        <!-- เพิ่มพื้นที่สำหรับแสดงราคา (ถ้าต้องการทำใน JavaScript) -->
+        <span id="costGridChargeOnPeak" class="text-xs text-rose-500 mt-1"></span>
+    </div>
+
+    <!-- 🟢 กริดชาร์จแบต (Off-Peak) - ค่าไฟถูก 3.17 บ. -->
+    <div class="bg-sky-50 p-4 rounded-xl border border-sky-200 shadow-sm flex flex-col">
+        <span class="text-sky-700 text-sm font-semibold mb-1" title="ดึงไฟหลวงมาชาร์จ ส.-อา. และช่วงดึก (22:00-08:59 น.)">⚡ กริดชาร์จ (Off-Peak)</span>
+        <span id="sumGridChargeOffPeak" class="text-2xl font-bold text-sky-700">0.00 <span class="text-base font-normal text-sky-500">kWh</span></span>
+        <!-- เพิ่มพื้นที่สำหรับแสดงราคา (ถ้าต้องการทำใน JavaScript) -->
+        <span id="costGridChargeOffPeak" class="text-xs text-sky-500 mt-1"></span>
+    </div>
+</div>
 
         <div id="weeklyBreakdown" class="hidden mb-6 bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
             <div class="bg-gray-50 px-4 py-3 border-b border-gray-100 font-semibold text-gray-700">
@@ -235,7 +247,9 @@ function updateChart() {
             const RATE_ON_PEAK = 6.38; 
             const RATE_OFF_PEAK = 3.17;
 
-            let totalPvW = 0, totalAcSolarW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0, totalGridToBatteryW = 0;
+            // 💡 แก้ไขใหม่: แยกตัวแปรเก็บกริดชาร์จแบต On/Off Peak (Watt)
+            let totalPvW = 0, totalAcSolarW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0;
+            let totalGridToBatteryOnPeakW = 0, totalGridToBatteryOffPeakW = 0; // แทนที่ตัวเดิม
             
             // 💡 ตัวแปรเก็บข้อมูลแยก TOU
             let savedOnPeakW = 0, savedOffPeakW = 0;
@@ -280,9 +294,14 @@ function updateChart() {
                     totalBatteryW += Math.abs(d.battery);
                 }
 
-                if (isDaytime && d.grid > 0 && d.battery > 0) {
+                // 💡 แก้ไขใหม่: คำนวณ Grid Charge แบตเตอรี่ โดยไม่สนเวลา isDaytime แล้ว และแยก On/Off Peak
+                if (d.grid > 0 && d.battery > 0) {
                     const gridToBattery = Math.min(d.grid, d.battery);
-                    totalGridToBatteryW += gridToBattery;
+                    if (isOnPeak) {
+                        totalGridToBatteryOnPeakW += gridToBattery;
+                    } else {
+                        totalGridToBatteryOffPeakW += gridToBattery;
+                    }
                 }
 
                 if (isDaytime) {
@@ -304,7 +323,7 @@ function updateChart() {
                     if (isDaytime) { dailySummaries[dateStr].loadDay += actualLoad; } 
                     else { dailySummaries[dateStr].loadNight += actualLoad; }
                     
-                    if (isDaytime && d.grid > 0 && d.battery > 0) {
+                    if (d.grid > 0 && d.battery > 0) { // 💡 ปลดล็อก isDaytime ออกเพื่อให้โชว์ในตารางด้วย
                         dailySummaries[dateStr].gridToBattery += Math.min(d.grid, d.battery);
                     }
                 }
@@ -315,33 +334,43 @@ function updateChart() {
             const savedOffPeakKwh = savedOffPeakW / 4000;
             const gridOnPeakKwh = gridOnPeakW / 4000;
             const gridOffPeakKwh = gridOffPeakW / 4000;
+            
+            // 💡 แก้ไขใหม่: แปลงค่า Grid Charge แบตเป็น kWh และคำนวณเป็นบาท
+            const gridToBatOnPeakKwh = totalGridToBatteryOnPeakW / 4000;
+            const gridToBatOffPeakKwh = totalGridToBatteryOffPeakW / 4000;
+            const costGridToBatOnPeak = gridToBatOnPeakKwh * RATE_ON_PEAK;
+            const costGridToBatOffPeak = gridToBatOffPeakKwh * RATE_OFF_PEAK;
 
             const savedBaht = (savedOnPeakKwh * RATE_ON_PEAK) + (savedOffPeakKwh * RATE_OFF_PEAK);
             const gridCostBaht = (gridOnPeakKwh * RATE_ON_PEAK) + (gridOffPeakKwh * RATE_OFF_PEAK);
 
-            // 💡 แสดงผลตัวเลขลงในกล่อง TOU
+            // 💡 แสดงผลตัวเลขลงในกล่อง TOU (ของเดิม)
             if (document.getElementById('touGridCost')) {
-                // แสดงผลยอดรวมเป็นบาท
                 document.getElementById('touGridCost').innerText = gridCostBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
                 document.getElementById('touSaved').innerText = savedBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
-
-                // แสดงรายละเอียดเป็นบาท แยก On/Off
                 document.getElementById('touGridDetails').innerText = `On: ${(gridOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(gridOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
                 document.getElementById('touSavedDetails').innerText = `On: ${(savedOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(savedOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
-
-                // 💡 แสดงรายละเอียดเป็นหน่วย kWh แยก On/Off (เพิ่มใหม่)
                 document.getElementById('touGridKwh').innerText = `On: ${gridOnPeakKwh.toFixed(1)} หน่วย | Off: ${gridOffPeakKwh.toFixed(1)} หน่วย`;
                 document.getElementById('touSavedKwh').innerText = `On: ${savedOnPeakKwh.toFixed(1)} หน่วย | Off: ${savedOffPeakKwh.toFixed(1)} หน่วย`;
             }
 
+            // 💡 แสดงผลลง Scorecards
             document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             document.getElementById('sumAcSolar').innerHTML = (totalAcSolarW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            
             document.getElementById('sumLoadDay').innerHTML = (totalLoadDayW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             document.getElementById('sumLoadNight').innerHTML = (totalLoadNightW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             document.getElementById('sumGrid').innerHTML = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
             document.getElementById('sumBattery').innerHTML = (totalBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumGridToBattery').innerHTML = (totalGridToBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-rose-400">kWh</span>';
+            
+            // 💡 แก้ไขใหม่: นำค่า Grid Charge แบต ทั้ง On/Off ไปใส่ในกล่อง HTML ที่เพิ่มใหม่
+            if (document.getElementById('sumGridChargeOnPeak')) {
+                document.getElementById('sumGridChargeOnPeak').innerHTML = gridToBatOnPeakKwh.toFixed(2) + ' <span class="text-base font-normal text-rose-500">kWh</span>';
+                document.getElementById('costGridChargeOnPeak').innerText = 'ขาดทุน ~' + costGridToBatOnPeak.toFixed(1) + ' ฿';
+            }
+            if (document.getElementById('sumGridChargeOffPeak')) {
+                document.getElementById('sumGridChargeOffPeak').innerHTML = gridToBatOffPeakKwh.toFixed(2) + ' <span class="text-base font-normal text-sky-500">kWh</span>';
+                document.getElementById('costGridChargeOffPeak').innerText = 'จ่าย ~' + costGridToBatOffPeak.toFixed(1) + ' ฿';
+            }
 
             const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
             document.getElementById('labelSolar').innerText = '🌞 โซลาร์ (ECOS) ' + labelSuffix;
@@ -386,6 +415,7 @@ function updateChart() {
             const gridToBatData = filteredData.map(d => {
                 const hour = new Date(d.time).getHours();
                 const isDaytime = (hour >= 6 && hour < 18);
+                // 💡 คงกราฟแท่งสีแดงเตือนกริดชาร์จเฉพาะตอนกลางวันไว้ตามเดิม (ถ้าอยากให้โชว์ทั้งวัน เอา isDaytime ออกได้ครับ)
                 if (isDaytime && d.grid > 0 && d.battery > 0) {
                     return Math.min(d.grid, d.battery); 
                 }
