@@ -69,6 +69,31 @@
                 </div>
             </div>
         </div>
+
+        <!-- 🕒 ตารางสรุปการใช้พลังงานแยกรายชั่วโมง (แสดงเฉพาะโหมด Daily) -->
+<div id="hourlyBreakdown" class="hidden mb-6 bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-gray-50 px-4 py-3 border-b border-gray-100 font-semibold text-gray-700 flex justify-between items-center">
+        <span>🕒 สรุปการใช้พลังงานแยกรายชั่วโมง (kWh)</span>
+    </div>
+    <div class="overflow-x-auto h-96 overflow-y-auto"> <!-- จำกัดความสูงให้ scroll ได้ -->
+        <table class="w-full text-left border-collapse text-center">
+            <thead class="bg-gray-50 text-gray-600 text-xs uppercase font-semibold sticky top-0 shadow-sm">
+                <tr>
+                    <th class="py-3 px-4">เวลา</th>
+                    <th class="py-3 px-4 text-amber-600">🌞 ECOS</th>
+                    <th class="py-3 px-4 text-orange-600">🌞 Huawei</th>
+                    <th class="py-3 px-4 text-purple-600">🔌 โหลดบ้าน</th>
+                    <th class="py-3 px-4 text-red-600">🏢 ไฟหลวง</th>
+                    <th class="py-3 px-4 text-emerald-600">🔋 แบตฯ จ่าย</th>
+                    <th class="py-3 px-4 text-sky-600">⚡ ชาร์จแบต</th>
+                </tr>
+            </thead>
+            <tbody id="hourlyTableBody" class="divide-y divide-gray-100">
+                <!-- ข้อมูลรายชั่วโมงจะมาแสดงที่นี่ -->
+            </tbody>
+        </table>
+    </div>
+</div>
         
         <!-- กล่อง Scorecards แยก ECOS และ Huawei -->
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
@@ -177,34 +202,37 @@
             }
         }
 
-        function setViewMode(mode) {
-            viewMode = mode;
-            const btnDaily = document.getElementById('btnDaily');
-            const btnWeekly = document.getElementById('btnWeekly');
-            const dateLabel = document.getElementById('dateLabel');
-            const dateRangeDisplay = document.getElementById('dateRangeDisplay');
+function setViewMode(mode) {
+    viewMode = mode;
+    const btnDaily = document.getElementById('btnDaily');
+    const btnWeekly = document.getElementById('btnWeekly');
+    const dateLabel = document.getElementById('dateLabel');
+    const dateRangeDisplay = document.getElementById('dateRangeDisplay');
+    const hourlyBreakdown = document.getElementById('hourlyBreakdown'); // เพิ่มบรรทัดนี้
 
-            if (mode === 'daily') {
-                btnDaily.classList.add('bg-white', 'shadow', 'text-blue-600');
-                btnDaily.classList.remove('text-gray-500');
-                btnWeekly.classList.add('text-gray-500');
-                btnWeekly.classList.remove('bg-white', 'shadow', 'text-blue-600');
-                dateLabel.innerText = "เลือกวันที่";
-                dateRangeDisplay.classList.add('hidden');
-                document.getElementById('weeklyBreakdown').classList.add('hidden'); 
-            } else {
-                btnWeekly.classList.add('bg-white', 'shadow', 'text-blue-600');
-                btnWeekly.classList.remove('text-gray-500');
-                btnDaily.classList.add('text-gray-500');
-                btnDaily.classList.remove('bg-white', 'shadow', 'text-blue-600');
-                dateLabel.innerText = "เลือกวันในสัปดาห์ที่ต้องการ";
-                dateRangeDisplay.classList.remove('hidden');
-            }
-            
-            if (allData.length > 0) {
-                updateChart();
-            }
-        }
+    if (mode === 'daily') {
+        btnDaily.classList.add('bg-white', 'shadow', 'text-blue-600');
+        btnDaily.classList.remove('text-gray-500');
+        btnWeekly.classList.add('text-gray-500');
+        btnWeekly.classList.remove('bg-white', 'shadow', 'text-blue-600');
+        dateLabel.innerText = "เลือกวันที่";
+        dateRangeDisplay.classList.add('hidden');
+        document.getElementById('weeklyBreakdown').classList.add('hidden'); 
+        hourlyBreakdown.classList.remove('hidden'); // แสดงตารางรายชั่วโมง
+    } else {
+        btnWeekly.classList.add('bg-white', 'shadow', 'text-blue-600');
+        btnWeekly.classList.remove('text-gray-500');
+        btnDaily.classList.add('text-gray-500');
+        btnDaily.classList.remove('bg-white', 'shadow', 'text-blue-600');
+        dateLabel.innerText = "เลือกวันในสัปดาห์ที่ต้องการ";
+        dateRangeDisplay.classList.remove('hidden');
+        hourlyBreakdown.classList.add('hidden'); // ซ่อนตารางรายชั่วโมง
+    }
+    
+    if (allData.length > 0) {
+        updateChart();
+    }
+}
 
 function updateChart() {
             if (allData.length === 0) return;
@@ -257,7 +285,11 @@ function updateChart() {
             let gridOnPeakW = 0, gridOffPeakW = 0;
 
             const dailySummaries = {}; 
+            // ตัวแปรเก็บข้อมูลสรุปรายชั่วโมง
+            const hourlySummaries = {}; 
 
+            // เคลียร์ตารางเดิม
+            document.getElementById('hourlyTableBody').innerHTML = '';
             filteredData.forEach(d => {
                 const dDate = new Date(d.time);
                 const hour = dDate.getHours();
@@ -311,6 +343,27 @@ function updateChart() {
                     totalLoadNightW += actualLoad;
                 }
 
+                // --- โค้ดสำหรับยุบรวมราย 15 นาที เป็นรายชั่วโมง ---
+if (viewMode === 'daily') {
+    const hourKey = String(hour).padStart(2, '0') + ':00'; // เช่น "09:00"
+    
+    if (!hourlySummaries[hourKey]) {
+        hourlySummaries[hourKey] = { pv: 0, acSolar: 0, load: 0, grid: 0, batteryDischarge: 0, gridCharge: 0 };
+    }
+    
+    hourlySummaries[hourKey].pv += d.pv;
+    hourlySummaries[hourKey].acSolar += acSolar;
+    hourlySummaries[hourKey].load += actualLoad;
+    hourlySummaries[hourKey].grid += d.grid;
+    
+    if (d.battery < 0) {
+        hourlySummaries[hourKey].batteryDischarge += Math.abs(d.battery);
+    }
+    if (d.grid > 0 && d.battery > 0) {
+        hourlySummaries[hourKey].gridCharge += Math.min(d.grid, d.battery);
+    }
+}
+                
                 if (viewMode === 'weekly') {
                     const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
                     
@@ -414,7 +467,31 @@ function updateChart() {
                 }
                 document.getElementById('weeklyTableBody').innerHTML = tableHTML;
             }
-            
+
+// --- Render ตารางรายชั่วโมง (แสดงเฉพาะโหมด Daily) ---
+if (viewMode === 'daily') {
+    let hourlyHTML = '';
+    for (let h = 0; h < 24; h++) {
+        const hourKey = String(h).padStart(2, '0') + ':00';
+        const data = hourlySummaries[hourKey];
+        
+        if (data) {
+            hourlyHTML += `
+                <tr class="text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100">
+                    <td class="py-2 px-4 font-medium">${hourKey}</td>
+                    <td class="py-2 px-4 text-amber-600">${(data.pv / 4000).toFixed(2)}</td>
+                    <td class="py-2 px-4 text-orange-600">${(data.acSolar / 4000).toFixed(2)}</td>
+                    <td class="py-2 px-4 text-purple-600">${(data.load / 4000).toFixed(2)}</td>
+                    <td class="py-2 px-4 text-red-600 ${data.grid > 0 ? 'font-bold bg-red-50' : ''}">${(data.grid / 4000).toFixed(2)}</td>
+                    <td class="py-2 px-4 text-emerald-600">${(data.batteryDischarge / 4000).toFixed(2)}</td>
+                    <td class="py-2 px-4 text-sky-600 ${data.gridCharge > 0 ? 'font-bold bg-sky-50' : ''}">${(data.gridCharge / 4000).toFixed(2)}</td>
+                </tr>
+            `;
+        }
+    }
+    document.getElementById('hourlyTableBody').innerHTML = hourlyHTML;
+}
+    
             const labels = filteredData.map(d => d.time);
             const pvData = filteredData.map(d => d.pv);
             const gridData = filteredData.map(d => d.grid);
