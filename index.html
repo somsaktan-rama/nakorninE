@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.18</title>
+    <title>ECOS Solar Dashboard 1.19</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,11 +12,12 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.18</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.19</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
                 <button id="btnWeekly" onclick="setViewMode('weekly')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition">รายสัปดาห์ (Weekly)</button>
+                <button id="btnMonthly" onclick="setViewMode('monthly')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition">รายเดือน (Monthly)</button>
             </div>
         </div>
         
@@ -167,7 +168,7 @@
             </div>
         </div>
 
-        <div class="relative h-[60vh] w-full">
+        <div id="chartContainer" class="relative h-[60vh] w-full">
             <canvas id="ecosChart"></canvas>
         </div>
     </div>
@@ -208,281 +209,298 @@ function setViewMode(mode) {
     viewMode = mode;
     const btnDaily = document.getElementById('btnDaily');
     const btnWeekly = document.getElementById('btnWeekly');
+    const btnMonthly = document.getElementById('btnMonthly'); // เพิ่มปุ่มรายเดือน
     const dateLabel = document.getElementById('dateLabel');
     const dateRangeDisplay = document.getElementById('dateRangeDisplay');
-    const hourlyBreakdown = document.getElementById('hourlyBreakdown'); // เพิ่มบรรทัดนี้
+    const hourlyBreakdown = document.getElementById('hourlyBreakdown');
+    const chartContainer = document.getElementById('chartContainer'); // กล่องกราฟ
+
+    // รีเซ็ตปุ่มทั้งหมดให้เป็นสีเทาก่อน
+    [btnDaily, btnWeekly, btnMonthly].forEach(btn => {
+        btn.classList.add('text-gray-500');
+        btn.classList.remove('bg-white', 'shadow', 'text-blue-600');
+    });
 
     if (mode === 'daily') {
         btnDaily.classList.add('bg-white', 'shadow', 'text-blue-600');
-        btnDaily.classList.remove('text-gray-500');
-        btnWeekly.classList.add('text-gray-500');
-        btnWeekly.classList.remove('bg-white', 'shadow', 'text-blue-600');
         dateLabel.innerText = "เลือกวันที่";
         dateRangeDisplay.classList.add('hidden');
         document.getElementById('weeklyBreakdown').classList.add('hidden'); 
-        hourlyBreakdown.classList.remove('hidden'); // แสดงตารางรายชั่วโมง
-    } else {
+        hourlyBreakdown.classList.remove('hidden'); 
+        chartContainer.classList.remove('hidden'); // แสดงกราฟ
+    } else if (mode === 'weekly') {
         btnWeekly.classList.add('bg-white', 'shadow', 'text-blue-600');
-        btnWeekly.classList.remove('text-gray-500');
-        btnDaily.classList.add('text-gray-500');
-        btnDaily.classList.remove('bg-white', 'shadow', 'text-blue-600');
-        dateLabel.innerText = "เลือกวันในสัปดาห์ที่ต้องการ";
+        dateLabel.innerText = "เลือกสัปดาห์ (อิงจากวันที่)";
         dateRangeDisplay.classList.remove('hidden');
-        hourlyBreakdown.classList.add('hidden'); // ซ่อนตารางรายชั่วโมง
+        hourlyBreakdown.classList.add('hidden');
+        chartContainer.classList.remove('hidden'); // แสดงกราฟ
+    } else if (mode === 'monthly') {
+        btnMonthly.classList.add('bg-white', 'shadow', 'text-blue-600');
+        dateLabel.innerText = "เลือกเดือน (อิงจากวันที่)";
+        dateRangeDisplay.classList.remove('hidden');
+        hourlyBreakdown.classList.add('hidden');
+        chartContainer.classList.add('hidden'); // 🚫 ซ่อนกราฟในโหมดรายเดือน
     }
     
-    if (allData.length > 0) {
-        updateChart();
-    }
+    if (allData.length > 0) updateChart();
 }
 
 function updateChart() {
-            if (allData.length === 0) return;
+    if (allData.length === 0) return;
 
-            const selectedDateStr = document.getElementById('datePicker').value; 
-            if (!selectedDateStr) return;
-            
-            const dateParts = selectedDateStr.split('-');
-            const selectedDateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]); 
-            
-            let filteredData = [];
-
-            if (viewMode === 'daily') {
-                filteredData = allData.filter(d => {
-                    const dDate = new Date(d.time);
-                    const dStr = dDate.getFullYear() + '-' + 
-                                 String(dDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                                 String(dDate.getDate()).padStart(2, '0');
-                    return dStr === selectedDateStr;
-                });
-            } else if (viewMode === 'weekly') {
-                const dayOfWeek = selectedDateObj.getDay() || 7; 
-                const startOfWeek = new Date(selectedDateObj);
-                startOfWeek.setDate(selectedDateObj.getDate() - dayOfWeek + 1);
-                startOfWeek.setHours(0, 0, 0, 0);
-                
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(startOfWeek.getDate() + 6);
-                endOfWeek.setHours(23, 59, 59, 999);
-
-                document.getElementById('startDateText').innerText = startOfWeek.toLocaleDateString('th-TH');
-                document.getElementById('endDateText').innerText = endOfWeek.toLocaleDateString('th-TH');
-
-                filteredData = allData.filter(d => {
-                    const dataTime = new Date(d.time).getTime();
-                    return dataTime >= startOfWeek.getTime() && dataTime <= endOfWeek.getTime();
-                });
-            }
-
-            // 💡 ตั้งค่าเรทราคาค่าไฟ TOU (รวม Ft และ VAT)
-            const RATE_ON_PEAK = 6.38; 
-            const RATE_OFF_PEAK = 3.17;
-
-            // 💡 แก้ไขใหม่: แยกตัวแปรเก็บกริดชาร์จแบต On/Off Peak (Watt)
-            let totalPvW = 0, totalAcSolarW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0;
-            let totalGridToBatteryOnPeakW = 0, totalGridToBatteryOffPeakW = 0; // แทนที่ตัวเดิม
-            
-            // 💡 ตัวแปรเก็บข้อมูลแยก TOU
-            let savedOnPeakW = 0, savedOffPeakW = 0;
-            let gridOnPeakW = 0, gridOffPeakW = 0;
-
-            const dailySummaries = {}; 
-            // ตัวแปรเก็บข้อมูลสรุปรายชั่วโมง
-            const hourlySummaries = {}; 
-
-            // เคลียร์ตารางเดิม
-            document.getElementById('hourlyTableBody').innerHTML = '';
-            filteredData.forEach(d => {
-                const dDate = new Date(d.time);
-                const hour = dDate.getHours();
-                const dayOfWeek = dDate.getDay(); // 0 = อาทิตย์, 1 = จันทร์, ..., 6 = เสาร์
-                const isDaytime = (hour >= 6 && hour < 18);
-
-                // 💡 ตรรกะเช็คเวลา On-Peak (จันทร์-ศุกร์ เวลา 09:00 - 21:59)
-                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-                const isOnPeak = !isWeekend && (hour >= 9 && hour < 22);
-
-                const acSolar = d.huawei || 0;
-                
-                // โหลดบ้านที่แท้จริง = โหลดที่ ECOS อ่านได้ + โหลดที่ Huawei ช่วยจ่าย
-                let actualLoad = d.load + acSolar;
-                if (actualLoad < 0) actualLoad = 0; 
-
-                // 💡 พลังงานที่เราพึ่งพาตัวเองได้ (ประหยัดซื้อไฟ) = โหลดรวม - ไฟหลวง
-                let selfConsumedW = actualLoad - d.grid;
-                if (selfConsumedW < 0) selfConsumedW = 0; 
-
-                // 💡 แยกสะสมพลังงานตาม TOU
-                if (isOnPeak) {
-                    savedOnPeakW += selfConsumedW;
-                    gridOnPeakW += d.grid;
-                } else {
-                    savedOffPeakW += selfConsumedW;
-                    gridOffPeakW += d.grid;
-                }
-
-                totalPvW += d.pv;
-                totalAcSolarW += acSolar;
-                totalGridW += d.grid;
-                
-                if (d.battery < 0) {
-                    totalBatteryW += Math.abs(d.battery);
-                }
-
-                // 💡 แก้ไขใหม่: คำนวณ Grid Charge แบตเตอรี่ โดยไม่สนเวลา isDaytime แล้ว และแยก On/Off Peak
-                if (d.grid > 0 && d.battery > 0) {
-                    const gridToBattery = Math.min(d.grid, d.battery);
-                    if (isOnPeak) {
-                        totalGridToBatteryOnPeakW += gridToBattery;
-                    } else {
-                        totalGridToBatteryOffPeakW += gridToBattery;
-                    }
-                }
-
-                if (isDaytime) {
-                    totalLoadDayW += actualLoad;
-                } else {
-                    totalLoadNightW += actualLoad;
-                }
-
-// --- โค้ดสำหรับยุบรวมราย 15 นาที เป็นรายชั่วโมง ---
-if (viewMode === 'daily') {
-    const hourKey = String(hour).padStart(2, '0') + ':00';
+    const selectedDateStr = document.getElementById('datePicker').value; 
+    if (!selectedDateStr) return;
     
-    if (!hourlySummaries[hourKey]) {
-        // เปลี่ยน load เป็น loadDay และ loadNight
-        hourlySummaries[hourKey] = { pv: 0, acSolar: 0, loadDay: 0, loadNight: 0, grid: 0, batteryDischarge: 0, gridChargeOnPeak: 0, gridChargeOffPeak: 0 };
+    const dateParts = selectedDateStr.split('-');
+    const selectedDateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]); 
+    
+    let filteredData = [];
+
+    if (viewMode === 'daily') {
+        filteredData = allData.filter(d => {
+            const dDate = new Date(d.time);
+            const dStr = dDate.getFullYear() + '-' + 
+                         String(dDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(dDate.getDate()).padStart(2, '0');
+            return dStr === selectedDateStr;
+        });
+    } else if (viewMode === 'weekly') {
+        const dayOfWeek = selectedDateObj.getDay() || 7; 
+        const startOfWeek = new Date(selectedDateObj);
+        startOfWeek.setDate(selectedDateObj.getDate() - dayOfWeek + 1);
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        document.getElementById('startDateText').innerText = startOfWeek.toLocaleDateString('th-TH');
+        document.getElementById('endDateText').innerText = endOfWeek.toLocaleDateString('th-TH');
+
+        filteredData = allData.filter(d => {
+            const dataTime = new Date(d.time).getTime();
+            return dataTime >= startOfWeek.getTime() && dataTime <= endOfWeek.getTime();
+        });
+    } else if (viewMode === 'monthly') {
+        // 💡 เพิ่มการคัดกรองข้อมูลสำหรับโหมด "รายเดือน"
+        const startOfMonth = new Date(selectedDateObj.getFullYear(), selectedDateObj.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        
+        const endOfMonth = new Date(selectedDateObj.getFullYear(), selectedDateObj.getMonth() + 1, 0);
+        endOfMonth.setHours(23, 59, 59, 999);
+
+        document.getElementById('startDateText').innerText = startOfMonth.toLocaleDateString('th-TH');
+        document.getElementById('endDateText').innerText = endOfMonth.toLocaleDateString('th-TH');
+
+        filteredData = allData.filter(d => {
+            const dataTime = new Date(d.time).getTime();
+            return dataTime >= startOfMonth.getTime() && dataTime <= endOfMonth.getTime();
+        });
     }
+
+    // 💡 ตั้งค่าเรทราคาค่าไฟ TOU (รวม Ft และ VAT)
+    const RATE_ON_PEAK = 6.38; 
+    const RATE_OFF_PEAK = 3.17;
+
+    // 💡 แยกตัวแปรเก็บกริดชาร์จแบต On/Off Peak (Watt)
+    let totalPvW = 0, totalAcSolarW = 0, totalLoadDayW = 0, totalLoadNightW = 0, totalGridW = 0, totalBatteryW = 0;
+    let totalGridToBatteryOnPeakW = 0, totalGridToBatteryOffPeakW = 0; 
     
-    hourlySummaries[hourKey].pv += d.pv;
-    hourlySummaries[hourKey].acSolar += acSolar;
+    // 💡 ตัวแปรเก็บข้อมูลแยก TOU
+    let savedOnPeakW = 0, savedOffPeakW = 0;
+    let gridOnPeakW = 0, gridOffPeakW = 0;
+
+    const dailySummaries = {}; 
+    const hourlySummaries = {}; 
+
+    document.getElementById('hourlyTableBody').innerHTML = '';
     
-    // แยกสะสมโหลดกลางวัน (isDaytime) และกลางคืน
-    if (isDaytime) {
-        hourlySummaries[hourKey].loadDay += actualLoad;
-    } else {
-        hourlySummaries[hourKey].loadNight += actualLoad;
-    }
-    
-    hourlySummaries[hourKey].grid += d.grid;
-    
-    if (d.battery < 0) {
-        hourlySummaries[hourKey].batteryDischarge += Math.abs(d.battery);
-    }
-    if (d.grid > 0 && d.battery > 0) {
-        const chargeValue = Math.min(d.grid, d.battery);
+    filteredData.forEach(d => {
+        const dDate = new Date(d.time);
+        const hour = dDate.getHours();
+        const dayOfWeek = dDate.getDay(); // 0 = อาทิตย์, 1 = จันทร์, ..., 6 = เสาร์
+        const isDaytime = (hour >= 6 && hour < 18);
+
+        // 💡 ตรรกะเช็คเวลา On-Peak (จันทร์-ศุกร์ เวลา 09:00 - 21:59)
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const isOnPeak = !isWeekend && (hour >= 9 && hour < 22);
+
+        const acSolar = d.huawei || 0;
+        
+        let actualLoad = d.load + acSolar;
+        if (actualLoad < 0) actualLoad = 0; 
+
+        let selfConsumedW = actualLoad - d.grid;
+        if (selfConsumedW < 0) selfConsumedW = 0; 
+
         if (isOnPeak) {
-            hourlySummaries[hourKey].gridChargeOnPeak += chargeValue;
+            savedOnPeakW += selfConsumedW;
+            gridOnPeakW += d.grid;
         } else {
-            hourlySummaries[hourKey].gridChargeOffPeak += chargeValue;
+            savedOffPeakW += selfConsumedW;
+            gridOffPeakW += d.grid;
         }
+
+        totalPvW += d.pv;
+        totalAcSolarW += acSolar;
+        totalGridW += d.grid;
+        
+        if (d.battery < 0) {
+            totalBatteryW += Math.abs(d.battery);
+        }
+
+        if (d.grid > 0 && d.battery > 0) {
+            const gridToBattery = Math.min(d.grid, d.battery);
+            if (isOnPeak) {
+                totalGridToBatteryOnPeakW += gridToBattery;
+            } else {
+                totalGridToBatteryOffPeakW += gridToBattery;
+            }
+        }
+
+        if (isDaytime) {
+            totalLoadDayW += actualLoad;
+        } else {
+            totalLoadNightW += actualLoad;
+        }
+
+        // --- โค้ดสำหรับยุบรวมราย 15 นาที เป็นรายชั่วโมง ---
+        if (viewMode === 'daily') {
+            const hourKey = String(hour).padStart(2, '0') + ':00';
+            
+            if (!hourlySummaries[hourKey]) {
+                hourlySummaries[hourKey] = { pv: 0, acSolar: 0, loadDay: 0, loadNight: 0, grid: 0, batteryDischarge: 0, gridChargeOnPeak: 0, gridChargeOffPeak: 0 };
+            }
+            
+            hourlySummaries[hourKey].pv += d.pv;
+            hourlySummaries[hourKey].acSolar += acSolar;
+            
+            if (isDaytime) {
+                hourlySummaries[hourKey].loadDay += actualLoad;
+            } else {
+                hourlySummaries[hourKey].loadNight += actualLoad;
+            }
+            
+            hourlySummaries[hourKey].grid += d.grid;
+            
+            if (d.battery < 0) {
+                hourlySummaries[hourKey].batteryDischarge += Math.abs(d.battery);
+            }
+            if (d.grid > 0 && d.battery > 0) {
+                const chargeValue = Math.min(d.grid, d.battery);
+                if (isOnPeak) {
+                    hourlySummaries[hourKey].gridChargeOnPeak += chargeValue;
+                } else {
+                    hourlySummaries[hourKey].gridChargeOffPeak += chargeValue;
+                }
+            }
+        }
+        
+        // 💡 แก้ให้รองรับทั้ง weekly และ monthly พร้อมเพิ่มชื่อวัน
+        if (viewMode === 'weekly' || viewMode === 'monthly') {
+            const daysThai = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+            const dayName = daysThai[dDate.getDay()];
+            const dateStr = `${dayName} ${dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+            
+            if (!dailySummaries[dateStr]) {
+                dailySummaries[dateStr] = { pv: 0, acSolar: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBatOn: 0, gridToBatOff: 0 };
+            }
+            dailySummaries[dateStr].pv += d.pv;
+            dailySummaries[dateStr].acSolar += acSolar;
+            dailySummaries[dateStr].grid += d.grid;
+            if (d.battery < 0) { dailySummaries[dateStr].battery += Math.abs(d.battery); }
+            if (isDaytime) { dailySummaries[dateStr].loadDay += actualLoad; } 
+            else { dailySummaries[dateStr].loadNight += actualLoad; }
+            
+            if (d.grid > 0 && d.battery > 0) {
+                const dailyGridToBat = Math.min(d.grid, d.battery);
+                if (isOnPeak) {
+                    dailySummaries[dateStr].gridToBatOn += dailyGridToBat;
+                } else {
+                    dailySummaries[dateStr].gridToBatOff += dailyGridToBat;
+                }
+            }
+        }
+    });
+
+    // 💡 แปลงหน่วย TOU จาก W เป็น kWh และคำนวณเป็นบาท
+    const savedOnPeakKwh = savedOnPeakW / 4000;
+    const savedOffPeakKwh = savedOffPeakW / 4000;
+    const gridOnPeakKwh = gridOnPeakW / 4000;
+    const gridOffPeakKwh = gridOffPeakW / 4000;
+    
+    const gridToBatOnPeakKwh = totalGridToBatteryOnPeakW / 4000;
+    const gridToBatOffPeakKwh = totalGridToBatteryOffPeakW / 4000;
+    const costGridToBatOnPeak = gridToBatOnPeakKwh * RATE_ON_PEAK;
+    const costGridToBatOffPeak = gridToBatOffPeakKwh * RATE_OFF_PEAK;
+
+    const savedBaht = (savedOnPeakKwh * RATE_ON_PEAK) + (savedOffPeakKwh * RATE_OFF_PEAK);
+    const gridCostBaht = (gridOnPeakKwh * RATE_ON_PEAK) + (gridOffPeakKwh * RATE_OFF_PEAK);
+
+    if (document.getElementById('touGridCost')) {
+        document.getElementById('touGridCost').innerText = gridCostBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
+        document.getElementById('touSaved').innerText = savedBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
+        document.getElementById('touGridDetails').innerText = `On: ${(gridOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(gridOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
+        document.getElementById('touSavedDetails').innerText = `On: ${(savedOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(savedOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
+        document.getElementById('touGridKwh').innerText = `On: ${gridOnPeakKwh.toFixed(1)} หน่วย | Off: ${gridOffPeakKwh.toFixed(1)} หน่วย`;
+        document.getElementById('touSavedKwh').innerText = `On: ${savedOnPeakKwh.toFixed(1)} หน่วย | Off: ${savedOffPeakKwh.toFixed(1)} หน่วย`;
     }
-}
-                
-                if (viewMode === 'weekly') {
-                    const dateStr = dDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
-                    
-                    if (!dailySummaries[dateStr]) {
-                        dailySummaries[dateStr] = { pv: 0, acSolar: 0, loadDay: 0, loadNight: 0, grid: 0, battery: 0, gridToBatOn: 0, gridToBatOff: 0 };
-                    }
-                    dailySummaries[dateStr].pv += d.pv;
-                    dailySummaries[dateStr].acSolar += acSolar;
-                    dailySummaries[dateStr].grid += d.grid;
-                    if (d.battery < 0) { dailySummaries[dateStr].battery += Math.abs(d.battery); }
-                    if (isDaytime) { dailySummaries[dateStr].loadDay += actualLoad; } 
-                    else { dailySummaries[dateStr].loadNight += actualLoad; }
-                    
-                    if (d.grid > 0 && d.battery > 0) {
-                        const dailyGridToBat = Math.min(d.grid, d.battery);
-                            if (isOnPeak) {
-                                dailySummaries[dateStr].gridToBatOn += dailyGridToBat;
-                        } else {
-                                dailySummaries[dateStr].gridToBatOff += dailyGridToBat;
-                    }
-                }
-                }
-            });
 
-            // 💡 แปลงหน่วย TOU จาก W เป็น kWh และคำนวณเป็นบาท
-            const savedOnPeakKwh = savedOnPeakW / 4000;
-            const savedOffPeakKwh = savedOffPeakW / 4000;
-            const gridOnPeakKwh = gridOnPeakW / 4000;
-            const gridOffPeakKwh = gridOffPeakW / 4000;
-            
-            // 💡 แก้ไขใหม่: แปลงค่า Grid Charge แบตเป็น kWh และคำนวณเป็นบาท
-            const gridToBatOnPeakKwh = totalGridToBatteryOnPeakW / 4000;
-            const gridToBatOffPeakKwh = totalGridToBatteryOffPeakW / 4000;
-            const costGridToBatOnPeak = gridToBatOnPeakKwh * RATE_ON_PEAK;
-            const costGridToBatOffPeak = gridToBatOffPeakKwh * RATE_OFF_PEAK;
+    document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+    document.getElementById('sumAcSolar').innerHTML = (totalAcSolarW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+    document.getElementById('sumLoadDay').innerHTML = (totalLoadDayW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+    document.getElementById('sumLoadNight').innerHTML = (totalLoadNightW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+    document.getElementById('sumGrid').innerHTML = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+    document.getElementById('sumBattery').innerHTML = (totalBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
+    
+    if (document.getElementById('sumGridChargeOnPeak')) {
+        document.getElementById('sumGridChargeOnPeak').innerHTML = gridToBatOnPeakKwh.toFixed(2) + ' <span class="text-base font-normal text-rose-500">kWh</span>';
+        document.getElementById('costGridChargeOnPeak').innerText = 'ขาดทุน ~' + costGridToBatOnPeak.toFixed(1) + ' ฿';
+    }
+    if (document.getElementById('sumGridChargeOffPeak')) {
+        document.getElementById('sumGridChargeOffPeak').innerHTML = gridToBatOffPeakKwh.toFixed(2) + ' <span class="text-base font-normal text-sky-500">kWh</span>';
+        document.getElementById('costGridChargeOffPeak').innerText = 'จ่าย ~' + costGridToBatOffPeak.toFixed(1) + ' ฿';
+    }
 
-            const savedBaht = (savedOnPeakKwh * RATE_ON_PEAK) + (savedOffPeakKwh * RATE_OFF_PEAK);
-            const gridCostBaht = (gridOnPeakKwh * RATE_ON_PEAK) + (gridOffPeakKwh * RATE_OFF_PEAK);
+    // 💡 ปรับเปลี่ยนข้อความ Label ให้สอดคล้องกับโหมดที่เลือก
+    const labelSuffix = viewMode === 'daily' ? ' (รายวัน)' : 
+                        viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รวมทั้งเดือน)';
+    
+    document.getElementById('labelSolar').innerText = '🌞 โซลาร์ (ECOS) ' + labelSuffix;
+    document.getElementById('labelAcSolar').innerText = '🌞 โซลาร์ (Huawei) ' + labelSuffix;
+    document.getElementById('labelLoadDay').innerText = '☀️ ไฟบ้านกลางวัน ' + labelSuffix;
+    document.getElementById('labelLoadNight').innerText = '🌙 ไฟบ้านกลางคืน ' + labelSuffix;
+    document.getElementById('labelGrid').innerText = '🏢 ไฟหลวง ' + labelSuffix;
+    document.getElementById('labelBattery').innerText = '🔋 แบตเตอรี่จ่าย ' + labelSuffix;
 
-            // 💡 แสดงผลตัวเลขลงในกล่อง TOU (ของเดิม)
-            if (document.getElementById('touGridCost')) {
-                document.getElementById('touGridCost').innerText = gridCostBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
-                document.getElementById('touSaved').innerText = savedBaht.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
-                document.getElementById('touGridDetails').innerText = `On: ${(gridOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(gridOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
-                document.getElementById('touSavedDetails').innerText = `On: ${(savedOnPeakKwh * RATE_ON_PEAK).toFixed(0)}฿ | Off: ${(savedOffPeakKwh * RATE_OFF_PEAK).toFixed(0)}฿`;
-                document.getElementById('touGridKwh').innerText = `On: ${gridOnPeakKwh.toFixed(1)} หน่วย | Off: ${gridOffPeakKwh.toFixed(1)} หน่วย`;
-                document.getElementById('touSavedKwh').innerText = `On: ${savedOnPeakKwh.toFixed(1)} หน่วย | Off: ${savedOffPeakKwh.toFixed(1)} หน่วย`;
-            }
+    // 💡 วาดตารางรายวันสำหรับโหมด weekly และ monthly
+    if (viewMode === 'weekly' || viewMode === 'monthly') {
+        document.getElementById('weeklyBreakdown').classList.remove('hidden');
+        let tableHTML = '';
+        for (const [date, sums] of Object.entries(dailySummaries)) {
+            const batOnKwh = (sums.gridToBatOn / 4000).toFixed(2);
+            const batOffKwh = (sums.gridToBatOff / 4000).toFixed(2);
 
-            // 💡 แสดงผลลง Scorecards
-            document.getElementById('sumSolar').innerHTML = (totalPvW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumAcSolar').innerHTML = (totalAcSolarW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumLoadDay').innerHTML = (totalLoadDayW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumLoadNight').innerHTML = (totalLoadNightW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumGrid').innerHTML = (totalGridW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            document.getElementById('sumBattery').innerHTML = (totalBatteryW / 4000).toFixed(2) + ' <span class="text-base font-normal text-gray-500">kWh</span>';
-            
-            // 💡 แก้ไขใหม่: นำค่า Grid Charge แบต ทั้ง On/Off ไปใส่ในกล่อง HTML ที่เพิ่มใหม่
-            if (document.getElementById('sumGridChargeOnPeak')) {
-                document.getElementById('sumGridChargeOnPeak').innerHTML = gridToBatOnPeakKwh.toFixed(2) + ' <span class="text-base font-normal text-rose-500">kWh</span>';
-                document.getElementById('costGridChargeOnPeak').innerText = 'ขาดทุน ~' + costGridToBatOnPeak.toFixed(1) + ' ฿';
-            }
-            if (document.getElementById('sumGridChargeOffPeak')) {
-                document.getElementById('sumGridChargeOffPeak').innerHTML = gridToBatOffPeakKwh.toFixed(2) + ' <span class="text-base font-normal text-sky-500">kWh</span>';
-                document.getElementById('costGridChargeOffPeak').innerText = 'จ่าย ~' + costGridToBatOffPeak.toFixed(1) + ' ฿';
-            }
+            const warnOnClass = batOnKwh > 0.1 ? 'bg-rose-50 text-rose-700 font-bold' : 'text-gray-400';
+            const warnOffClass = batOffKwh > 0.1 ? 'bg-sky-50 text-sky-700 font-bold' : 'text-gray-400';
 
-            const labelSuffix = viewMode === 'weekly' ? ' (รวม 7 วัน)' : ' (รายวัน)';
-            document.getElementById('labelSolar').innerText = '🌞 โซลาร์ (ECOS) ' + labelSuffix;
-            document.getElementById('labelAcSolar').innerText = '🌞 โซลาร์ (Huawei) ' + labelSuffix;
-            document.getElementById('labelLoadDay').innerText = '☀️ ไฟบ้านกลางวัน ' + labelSuffix;
-            document.getElementById('labelLoadNight').innerText = '🌙 ไฟบ้านกลางคืน ' + labelSuffix;
-            document.getElementById('labelGrid').innerText = '🏢 ไฟหลวง ' + labelSuffix;
-            document.getElementById('labelBattery').innerText = '🔋 แบตเตอรี่จ่าย ' + labelSuffix;
-
-            if (viewMode === 'weekly') {
-                document.getElementById('weeklyBreakdown').classList.remove('hidden');
-                let tableHTML = '';
-                for (const [date, sums] of Object.entries(dailySummaries)) {
-                    const batOnKwh = (sums.gridToBatOn / 4000).toFixed(2);
-                    const batOffKwh = (sums.gridToBatOff / 4000).toFixed(2);
-
-                    // ไฮไลต์สีแดงเข้ม ถ้ามีการดึงไฟแพงมาชาร์จ (ควรหลีกเลี่ยง)
-                        const warnOnClass = batOnKwh > 0.1 ? 'bg-rose-50 text-rose-700 font-bold' : 'text-gray-400';
-                    // ไฮไลต์สีฟ้าจางๆ ถ้าดึงไฟถูกมาชาร์จ (ยอมรับได้)
-                        const warnOffClass = batOffKwh > 0.1 ? 'bg-sky-50 text-sky-700 font-bold' : 'text-gray-400';
-
-                    tableHTML += `
-                        <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
-                            <td class="py-3 px-4 text-left">${date}</td>
-                            <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-orange-600 font-semibold">${(sums.acSolar / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-amber-700 font-semibold">${(sums.loadDay / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
-                            <td class="py-3 px-4 ${warnOnClass}">${batOnKwh}</td>
-                            <td class="py-3 px-4 ${warnOffClass}">${batOffKwh}</td>
-                        </tr>
-                    `;
-                }
-                document.getElementById('weeklyTableBody').innerHTML = tableHTML;
-            }
-
+            tableHTML += `
+                <tr class="text-sm text-gray-700 hover:bg-gray-50 transition border-b border-gray-100">
+                    <td class="py-3 px-4 text-left font-medium">${date}</td>
+                    <td class="py-3 px-4 text-amber-600 font-semibold">${(sums.pv / 4000).toFixed(2)}</td>
+                    <td class="py-3 px-4 text-orange-600 font-semibold">${(sums.acSolar / 4000).toFixed(2)}</td>
+                    <td class="py-3 px-4 text-amber-700 font-semibold">${(sums.loadDay / 4000).toFixed(2)}</td>
+                    <td class="py-3 px-4 text-indigo-600 font-semibold">${(sums.loadNight / 4000).toFixed(2)}</td>
+                    <td class="py-3 px-4 text-red-600 font-semibold">${(sums.grid / 4000).toFixed(2)}</td>
+                    <td class="py-3 px-4 text-emerald-600 font-semibold">${(sums.battery / 4000).toFixed(2)}</td>
+                    <td class="py-3 px-4 ${warnOnClass}">${batOnKwh}</td>
+                    <td class="py-3 px-4 ${warnOffClass}">${batOffKwh}</td>
+                </tr>
+            `;
+        }
+        document.getElementById('weeklyTableBody').innerHTML = tableHTML;
+    }
+    
 // --- Render ตารางรายชั่วโมง (แสดงเฉพาะโหมด Daily) ---
 if (viewMode === 'daily') {
     let hourlyHTML = '';
