@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.21C</title>
+    <title>ECOS Solar Dashboard 1.21D</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.21C</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.21D</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -204,22 +204,37 @@
         const dd = String(yesterday.getDate()).padStart(2, '0');
         document.getElementById('datePicker').value = `${yyyy}-${mm}-${dd}`;
 
-        async function fetchGoogleSheetData() {
-            document.getElementById('loading').classList.remove('hidden');
-            try {
-                const response = await fetch(API_URL);
-                allData = await response.json();
-                ;
+async function fetchGoogleSheetData() {
+    document.getElementById('loading').classList.remove('hidden');
+    try {
+        const response = await fetch(API_URL);
+        allData = await response.json();
 
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                document.getElementById('lastUpdated').innerText = `อัปเดตล่าสุด: ${timeString} น.`;
-            } catch (error) {
-                console.error("เกิดข้อผิดพลาดในการดึงข้อมูล: ", error);
-            } finally {
-                document.getElementById('loading').classList.add('hidden');
-            }
+        // 💡 โค้ดเพิ่มใหม่: เช็คว่ามีข้อมูลไหม ถ้ามีให้เอาวันที่ล่าสุดมาตั้งเป็นค่าเริ่มต้น
+        if (allData.length > 0) {
+            // ข้อมูลตัวสุดท้าย (ล่าสุด) ใน Array
+            const latestData = allData[allData.length - 1]; 
+            const latestDate = new Date(latestData.time);
+            
+            const yyyy = latestDate.getFullYear();
+            const mm = String(latestDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(latestDate.getDate()).padStart(2, '0');
+            
+            // ยัดใส่วันที่ล่าสุดลงในช่องเลือกวันที่
+            document.getElementById('datePicker').value = `${yyyy}-${mm}-${dd}`;
         }
+
+        updateChart(); // เรียกอัปเดตหลังจากใส่วันที่ล่าสุดแล้ว
+        
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('lastUpdated').innerText = `อัปเดตล่าสุด: ${timeString} น.`;
+    } catch (error) {
+        console.error("เกิดข้อผิดพลาดในการดึงข้อมูล: ", error);
+    } finally {
+        document.getElementById('loading').classList.add('hidden');
+    }
+}
 
 function setViewMode(mode) {
     viewMode = mode;
@@ -592,10 +607,8 @@ function updateChart() {
         return null; 
     });
 
-    // ตรวจสอบว่ามีข้อมูลเพื่อวาดกราฟหรือไม่
-    if (labels.length > 0) {
         renderChart(labels, pvData, loadData, gridData, batteryData, socData, gridToBatData, acSolarData);
-    }
+    
 }
 
 // 💡 สร้างตัวแปร Global ไว้ด้านบนสุดของไฟล์ (หรือไว้นอกฟังก์ชัน renderChart)
