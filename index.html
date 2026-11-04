@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.21D</title>
+    <title>ECOS Solar Dashboard 1.22</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.21D</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.22</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -396,30 +396,35 @@ function updateChart() {
 
         const acSolar = d.huawei || 0;
         
-        let actualLoad = d.load + acSolar;
+        // 💡 สมการใหม่! คำนวณโหลดบ้าน 3 เฟสที่แท้จริง
+        let actualLoad = d.grid + d.pv + acSolar - d.battery;
         if (actualLoad < 0) actualLoad = 0; 
 
-        let selfConsumedW = actualLoad - d.grid;
+        // 💡 1. แยกค่าการ "ดึงไฟหลวง (Import)" ออกมาเพื่อใช้บวกสะสมค่าไฟ (ตัดค่าไฟย้อนทิ้ง)
+        const gridImport = Math.max(0, d.grid);
+
+        // 💡 2. แก้สมการพลังงานที่ประหยัดได้ (เอาโหลดบ้าน ลบด้วย ไฟหลวงที่ซื้อเข้ามาจริงๆ)
+        let selfConsumedW = actualLoad - gridImport;
         if (selfConsumedW < 0) selfConsumedW = 0; 
 
         if (isOnPeak) {
             savedOnPeakW += selfConsumedW;
-            gridOnPeakW += d.grid;
+            gridOnPeakW += gridImport; // เปลี่ยนมาใช้ gridImport
         } else {
             savedOffPeakW += selfConsumedW;
-            gridOffPeakW += d.grid;
+            gridOffPeakW += gridImport; // เปลี่ยนมาใช้ gridImport
         }
 
         totalPvW += d.pv;
         totalAcSolarW += acSolar;
-        totalGridW += d.grid;
+        totalGridW += gridImport; // สะสมเฉพาะไฟหลวงที่ซื้อเข้าบ้าน
         
         if (d.battery < 0) {
             totalBatteryW += Math.abs(d.battery);
         }
 
-        if (d.grid > 0 && d.battery > 0) {
-            const gridToBattery = Math.min(d.grid, d.battery);
+        if (gridImport > 0 && d.battery > 0) {
+            const gridToBattery = Math.min(gridImport, d.battery);
             if (isOnPeak) {
                 totalGridToBatteryOnPeakW += gridToBattery;
             } else {
@@ -449,13 +454,13 @@ function updateChart() {
                 hourlySummaries[hourKey].loadNight += actualLoad;
             }
             
-            hourlySummaries[hourKey].grid += d.grid;
+            hourlySummaries[hourKey].grid += gridImport; // ใช้ gridImport
             
             if (d.battery < 0) {
                 hourlySummaries[hourKey].batteryDischarge += Math.abs(d.battery);
             }
-            if (d.grid > 0 && d.battery > 0) {
-                const chargeValue = Math.min(d.grid, d.battery);
+            if (gridImport > 0 && d.battery > 0) {
+                const chargeValue = Math.min(gridImport, d.battery);
                 if (isOnPeak) {
                     hourlySummaries[hourKey].gridChargeOnPeak += chargeValue;
                 } else {
@@ -474,13 +479,13 @@ function updateChart() {
             }
             dailySummaries[dateStr].pv += d.pv;
             dailySummaries[dateStr].acSolar += acSolar;
-            dailySummaries[dateStr].grid += d.grid;
+            dailySummaries[dateStr].grid += gridImport; // ใช้ gridImport
             if (d.battery < 0) { dailySummaries[dateStr].battery += Math.abs(d.battery); }
             if (isDaytime) { dailySummaries[dateStr].loadDay += actualLoad; } 
             else { dailySummaries[dateStr].loadNight += actualLoad; }
             
-            if (d.grid > 0 && d.battery > 0) {
-                const dailyGridToBat = Math.min(d.grid, d.battery);
+            if (gridImport > 0 && d.battery > 0) {
+                const dailyGridToBat = Math.min(gridImport, d.battery);
                 if (isOnPeak) {
                     dailySummaries[dateStr].gridToBatOn += dailyGridToBat;
                 } else {
@@ -596,7 +601,9 @@ function updateChart() {
     const batteryData = filteredData.map(d => d.battery);
     const socData = filteredData.map(d => d.soc);
     const acSolarData = filteredData.map(d => d.huawei || 0);
-    const loadData = filteredData.map(d => Math.max(0, d.load + (d.huawei || 0)));
+
+    // 💡 แก้สูตรวาดกราฟเส้นสีม่วง (Load) ให้ตรงกับสมการ 3 เฟสใหม่
+    const loadData = filteredData.map(d => Math.max(0, d.grid + d.pv + (d.huawei || 0) - d.battery));
 
     const gridToBatData = filteredData.map(d => {
         const hour = new Date(d.time).getHours();
@@ -607,8 +614,7 @@ function updateChart() {
         return null; 
     });
 
-        renderChart(labels, pvData, loadData, gridData, batteryData, socData, gridToBatData, acSolarData);
-    
+    renderChart(labels, pvData, loadData, gridData, batteryData, socData, gridToBatData, acSolarData);
 }
 
 // 💡 สร้างตัวแปร Global ไว้ด้านบนสุดของไฟล์ (หรือไว้นอกฟังก์ชัน renderChart)
