@@ -262,6 +262,10 @@ function setViewMode(mode) {
 }
 
 function updateChart() {
+    // 💡 1. ปริ้นดูว่าข้อมูลโหลดมาจาก Google Sheets ได้กี่แถว
+    console.log("จำนวนข้อมูลที่โหลดได้:", allData.length);
+    console.log("ข้อมูลทั้งหมด:", allData);
+
     if (allData.length === 0) return;
 
     const selectedDateStr = document.getElementById('datePicker').value; 
