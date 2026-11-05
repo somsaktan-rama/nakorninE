@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.22</title>
+    <title>ECOS Solar Dashboard 1.23</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.22</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.23</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -95,6 +95,37 @@
                 <!-- ข้อมูลรายชั่วโมงจะมาแสดงที่นี่ -->
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- ⚡️ กล่องสถานะไฟหลวง 3 เฟส (Grid Health) -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+    <div class="flex justify-between items-center mb-3">
+        <h3 class="text-sm md:text-base font-bold text-gray-700 flex items-center">
+            <span class="mr-2">⚡</span> สถานะไฟหลวง 3 เฟส (Real-time)
+        </h3>
+        <span id="gridHealthTime" class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">อัปเดต: กำลังโหลด...</span>
+    </div>
+    
+    <div class="grid grid-cols-3 gap-3 md:gap-4">
+        <!-- เฟส A -->
+        <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-100 shadow-inner">
+            <div class="text-xs font-bold text-gray-500 mb-1">เฟส A (L1)</div>
+            <div id="val-vA" class="text-lg md:text-xl font-bold text-emerald-600">- V</div>
+            <div id="val-iA" class="text-sm font-medium text-blue-600 mt-1">- A</div>
+        </div>
+        <!-- เฟส B -->
+        <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-100 shadow-inner">
+            <div class="text-xs font-bold text-gray-500 mb-1">เฟส B (L2)</div>
+            <div id="val-vB" class="text-lg md:text-xl font-bold text-emerald-600">- V</div>
+            <div id="val-iB" class="text-sm font-medium text-blue-600 mt-1">- A</div>
+        </div>
+        <!-- เฟส C -->
+        <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-100 shadow-inner">
+            <div class="text-xs font-bold text-gray-500 mb-1">เฟส C (L3)</div>
+            <div id="val-vC" class="text-lg md:text-xl font-bold text-emerald-600">- V</div>
+            <div id="val-iC" class="text-sm font-medium text-blue-600 mt-1">- A</div>
+        </div>
     </div>
 </div>
         
@@ -210,7 +241,36 @@ async function fetchGoogleSheetData() {
         const response = await fetch(API_URL);
         allData = await response.json();
 
-        // 💡 โค้ดเพิ่มใหม่: เช็คว่ามีข้อมูลไหม ถ้ามีให้เอาวันที่ล่าสุดมาตั้งเป็นค่าเริ่มต้น
+        // 💡 โค้ดเพิ่มใหม่: อัปเดตกล่องสถานะไฟหลวง 3 เฟส
+    if (allData.length > 0 && allData[allData.length - 1].gridHealth) {
+        const health = allData[allData.length - 1].gridHealth;
+        
+        // ฟังก์ชันช่วยทำสี: สีเขียวถ้าไฟปกติ (200-240V), สีแดงถ้าไฟตก/ไฟเกิน
+        const getVColor = (v) => (v >= 200 && v <= 240) ? 'text-emerald-600' : 'text-rose-600';
+        
+        // อัปเดตเฟส A
+        document.getElementById('val-vA').innerText = health.vA.toFixed(1) + ' V';
+        document.getElementById('val-vA').className = `text-lg md:text-xl font-bold ${getVColor(health.vA)}`;
+        document.getElementById('val-iA').innerText = health.iA.toFixed(2) + ' A';
+
+        // อัปเดตเฟส B
+        document.getElementById('val-vB').innerText = health.vB.toFixed(1) + ' V';
+        document.getElementById('val-vB').className = `text-lg md:text-xl font-bold ${getVColor(health.vB)}`;
+        document.getElementById('val-iB').innerText = health.iB.toFixed(2) + ' A';
+
+        // อัปเดตเฟส C
+        document.getElementById('val-vC').innerText = health.vC.toFixed(1) + ' V';
+        document.getElementById('val-vC').className = `text-lg md:text-xl font-bold ${getVColor(health.vC)}`;
+        document.getElementById('val-iC').innerText = health.iC.toFixed(2) + ' A';
+        
+        // อัปเดตเวลาให้ตรงกับเครื่อง Tuya แจ้ง
+        let tTime = new Date(health.time);
+        if(!isNaN(tTime)) {
+            document.getElementById('gridHealthTime').innerText = `อัปเดต: ${tTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+        }
+    }
+
+            // 💡 โค้ดเพิ่มใหม่: เช็คว่ามีข้อมูลไหม ถ้ามีให้เอาวันที่ล่าสุดมาตั้งเป็นค่าเริ่มต้น
         if (allData.length > 0) {
             // ข้อมูลตัวสุดท้าย (ล่าสุด) ใน Array
             const latestData = allData[allData.length - 1]; 
