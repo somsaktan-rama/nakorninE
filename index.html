@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECOS Solar Dashboard 1.23</title>
+    <title>ECOS Solar Dashboard 1.24</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment"></script>
@@ -12,7 +12,7 @@
 <body class="bg-gray-50 p-4 md:p-8 font-sans">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.23</h1>
+            <h1 class="text-2xl font-bold text-gray-800">การใช้ไฟฟ้า Nakornin (ECOS) 1.24</h1>
             
             <div class="mt-4 md:mt-0 flex bg-gray-100 p-1 rounded-lg">
                 <button id="btnDaily" onclick="setViewMode('daily')" class="px-4 py-2 rounded-md bg-white shadow text-sm font-medium text-blue-600 transition">รายวัน (Daily)</button>
@@ -300,11 +300,11 @@ function setViewMode(mode) {
     viewMode = mode;
     const btnDaily = document.getElementById('btnDaily');
     const btnWeekly = document.getElementById('btnWeekly');
-    const btnMonthly = document.getElementById('btnMonthly'); // เพิ่มปุ่มรายเดือน
+    const btnMonthly = document.getElementById('btnMonthly'); 
     const dateLabel = document.getElementById('dateLabel');
     const dateRangeDisplay = document.getElementById('dateRangeDisplay');
     const hourlyBreakdown = document.getElementById('hourlyBreakdown');
-    const chartContainer = document.getElementById('chartContainer'); // กล่องกราฟ
+    const chartContainer = document.getElementById('chartContainer'); 
 
     // รีเซ็ตปุ่มทั้งหมดให้เป็นสีเทาก่อน
     [btnDaily, btnWeekly, btnMonthly].forEach(btn => {
@@ -318,22 +318,25 @@ function setViewMode(mode) {
         dateRangeDisplay.classList.add('hidden');
         document.getElementById('weeklyBreakdown').classList.add('hidden'); 
         hourlyBreakdown.classList.remove('hidden'); 
-        chartContainer.classList.remove('hidden'); // แสดงกราฟ
+        chartContainer.classList.remove('hidden'); 
     } else if (mode === 'weekly') {
         btnWeekly.classList.add('bg-white', 'shadow', 'text-blue-600');
         dateLabel.innerText = "เลือกสัปดาห์ (อิงจากวันที่)";
         dateRangeDisplay.classList.remove('hidden');
         hourlyBreakdown.classList.add('hidden');
-        chartContainer.classList.remove('hidden'); // แสดงกราฟ
+        chartContainer.classList.remove('hidden'); 
     } else if (mode === 'monthly') {
         btnMonthly.classList.add('bg-white', 'shadow', 'text-blue-600');
         dateLabel.innerText = "เลือกเดือน (อิงจากวันที่)";
         dateRangeDisplay.classList.remove('hidden');
         hourlyBreakdown.classList.add('hidden');
-        chartContainer.classList.add('hidden'); // 🚫 ซ่อนกราฟในโหมดรายเดือน
+        chartContainer.classList.add('hidden'); 
     }
     
-    if (allData.length > 0) ;
+    // 💡 แก้ไขบรรทัดตกหล่น: สั่งให้อัปเดตข้อมูลทันทีเมื่อมีข้อมูลอยู่แล้ว
+    if (typeof allData !== 'undefined' && allData.length > 0) {
+        updateChart();
+    }
 }
 
 function updateChart() {
